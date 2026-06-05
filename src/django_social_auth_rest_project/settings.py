@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "djoser",
     "drf_spectacular",
+    "user",
     "django_social_auth_rest",
 ]
 
@@ -98,6 +99,8 @@ USE_TZ = True
 
 
 STATIC_URL = "static/"
+
+AUTH_USER_MODEL = "user.User"
 
 
 REST_FRAMEWORK = {

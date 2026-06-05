@@ -6,6 +6,7 @@ prune dist
 prune build
 prune node_modules
 prune src/django_social_auth_rest_project
+prune src/user
 
 # Virtual environments and caches
 prune .venv
