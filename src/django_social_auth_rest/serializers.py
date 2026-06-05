@@ -2,7 +2,7 @@
 django_social_auth_rest.serializers
 ====================================
 
-This module defines the serializers for handling social authentication 
+This module defines the serializers for handling social authentication
 and account linking/unlinking in the Django application.
 """
 
@@ -245,7 +245,7 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
             return user
 
 
-class GoogleUnlinkAuthSerializer(BaseUnlinkAuthSerializer):
+class UnlinkGoogleAuthSerializer(BaseUnlinkAuthSerializer):
     PROVIDER = SocialAccountProvider.GOOGLE
 
 
@@ -486,5 +486,5 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
             return user
 
 
-class GithubUnlinkAuthSerializer(BaseUnlinkAuthSerializer):
+class UnlinkGithubAuthSerializer(BaseUnlinkAuthSerializer):
     PROVIDER = SocialAccountProvider.GITHUB
