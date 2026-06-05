@@ -17,6 +17,7 @@ class SocialAccountProvider(models.TextChoices):
 
     GOOGLE = "google", "Google"
     GITHUB = "github", "GitHub"
+    # more providers can be added here in the future
 
 
 class SocialAccountLinked(models.Model):
