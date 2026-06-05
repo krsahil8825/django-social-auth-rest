@@ -6,7 +6,6 @@ This module defines the serializers for handling social authentication
 and account linking/unlinking in the Django application.
 """
 
-from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.signing import BadSignature, SignatureExpired
@@ -18,6 +17,7 @@ from rest_framework import serializers
 from uuid import uuid4
 import requests as web_requests
 
+from . import conf
 from .models import SocialAccountLinked, SocialAccountProvider
 from .tokens import verify_state_token
 
@@ -125,7 +125,7 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
             user_info = id_token.verify_oauth2_token(
                 value,
                 google_requests.Request(),
-                django_settings.GOOGLE_CLIENT_ID,
+                conf.GOOGLE_CLIENT_ID,
             )
 
         except ValueError:
@@ -276,8 +276,8 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 "Accept": "application/json",
             },
             data={
-                "client_id": django_settings.GITHUB_CLIENT_ID,
-                "client_secret": django_settings.GITHUB_CLIENT_SECRET,
+                "client_id": conf.GITHUB_CLIENT_ID,
+                "client_secret": conf.GITHUB_CLIENT_SECRET,
                 "code": code,
             },
             timeout=15,

@@ -7,18 +7,9 @@ This module defines token generation and verification functions
 
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
-from django.conf import settings as django_settings
 
+from . import conf
 from .models import SocialAccountProvider
-
-
-SOCIAL_AUTH_STATE_SALT = getattr(
-    django_settings, "SOCIAL_AUTH_STATE_SALT", "social-auth-state-salt"
-)
-
-SOCIAL_AUTH_STATE_MAX_AGE = getattr(
-    django_settings, "SOCIAL_AUTH_STATE_MAX_AGE", 300
-)  # 5 minutes
 
 
 def generate_state_token(provider: SocialAccountProvider) -> str:
@@ -32,7 +23,7 @@ def generate_state_token(provider: SocialAccountProvider) -> str:
 
     return signing.dumps(
         data,
-        salt=SOCIAL_AUTH_STATE_SALT,
+        salt=conf.SOCIAL_AUTH_STATE_SALT,
     )
 
 
@@ -42,8 +33,8 @@ def verify_state_token(token: str, provider_value: str) -> None:
     try:
         data = signing.loads(
             token,
-            salt=SOCIAL_AUTH_STATE_SALT,
-            max_age=SOCIAL_AUTH_STATE_MAX_AGE,
+            salt=conf.SOCIAL_AUTH_STATE_SALT,
+            max_age=conf.SOCIAL_AUTH_STATE_MAX_AGE,
         )
 
     except SignatureExpired as exc:
