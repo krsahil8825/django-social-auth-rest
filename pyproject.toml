@@ -1,0 +1,88 @@
+[project]
+name = "django-social-auth-rest"
+dynamic = ["version"]
+
+authors = [{ name = "Kumar Sahil", email = "krsahil8825@gmail.com" }]
+
+maintainers = [{ name = "Kumar Sahil", email = "krsahil8825@gmail.com" }]
+
+description = "A Django package for social authentication in Django REST APIs, currently supporting Google and GitHub OAuth with Simple JWT integration."
+
+readme = "README.md"
+
+license = { text = "MIT" }
+
+requires-python = ">=3.12"
+
+dependencies = [
+    "django>=5.0",
+    "djangorestframework>=3.15",
+    "djangorestframework-simplejwt>=5.5.1",
+    "google-auth>=2.52.0",
+    "requests>=2.33.1",
+]
+
+keywords = [
+    "django",
+    "django-rest-framework",
+    "drf",
+    "social-auth",
+    "social-authentication",
+    "oauth",
+    "oauth2",
+    "authentication",
+    "authorization",
+    "google-oauth",
+    "github-oauth",
+    "google-login",
+    "github-login",
+    "social-login",
+    "jwt",
+    "simplejwt",
+    "rest-api",
+    "api-authentication",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Software Development :: Authentication",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://krsahil8825.github.io/django-social-auth-rest/"
+Documentation = "https://krsahil8825.github.io/django-social-auth-rest/"
+Repository = "https://github.com/krsahil8825/django-social-auth-rest"
+Issues = "https://github.com/krsahil8825/django-social-auth-rest/issues/"
+
+[build-system]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["django_social_auth_rest*"]
+exclude = ["django_social_auth_rest_project*"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+
+[dependency-groups]
+dev = [
+    "djoser>=2.3.3",
+    "drf-spectacular>=0.29.0",
+    "pytest>=9.0.3",
+    "pytest-django>=4.12.0",
+    "python-dotenv>=1.2.2",
+]
