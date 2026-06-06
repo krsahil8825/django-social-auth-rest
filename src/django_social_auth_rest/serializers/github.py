@@ -19,7 +19,7 @@ from ..tokens import verify_state_token
 User = get_user_model()
 
 
-class GithubAuthStateSerializer(BaseAuthStateSerializer):
+class StateGithubAuthSerializer(BaseAuthStateSerializer):
     pass
 
 
@@ -136,7 +136,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
         return attrs
 
 
-class GithubAuthSerializer(BaseGithubAuthSerializer):
+class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
     def create(self, validated_data):
         github_user = self._get_user_data(self.access_token)
 
