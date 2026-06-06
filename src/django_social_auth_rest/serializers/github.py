@@ -14,6 +14,7 @@ from . import (
 from .. import conf
 from ..models import SocialAccountLinked, SocialAccountProvider
 from ..tokens import verify_state_token
+from ..utils import is_user_deleted
 
 
 User = get_user_model()
@@ -162,7 +163,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
             if social_link:
                 user = social_link.user
 
-                if user.is_deleted:
+                if is_user_deleted(user):
                     raise serializers.ValidationError("Account has been deleted.")
 
                 return user
@@ -192,7 +193,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 },
             )
 
-            if user.is_deleted:
+            if is_user_deleted(user):
                 raise serializers.ValidationError("Account has been deleted.")
 
             try:
@@ -234,7 +235,7 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
 
             user = self.context["request"].user
-            if user.is_deleted:
+            if is_user_deleted(user):
                 raise serializers.ValidationError("Account has been deleted.")
 
             try:

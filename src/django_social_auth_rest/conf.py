@@ -58,6 +58,25 @@ Example:
     )
 """
 
+# ============================================
+# User model configuration
+# ============================================
+
+SOCIAL_AUTH_USER_DELETED_FIELD = getattr(
+    django_settings,
+    "SOCIAL_AUTH_USER_DELETED_FIELD",
+    None,
+)
+"""
+Optional field name on the User model that indicates a soft-deleted account.
+
+Example:
+
+    SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
+
+If None, no deleted-account check is performed.
+"""
+
 
 # ===========================================
 # Provider-specific configuration

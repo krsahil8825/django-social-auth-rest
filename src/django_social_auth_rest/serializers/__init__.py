@@ -11,6 +11,7 @@ from rest_framework import serializers
 from uuid import uuid4
 
 from ..models import SocialAccountLinked
+from ..utils import is_user_deleted
 
 
 User = get_user_model()
@@ -87,7 +88,7 @@ class BaseUnlinkAuthSerializer(serializers.Serializer):
 
         user = self.context["request"].user
 
-        if user.is_deleted:
+        if is_user_deleted(user):
             raise serializers.ValidationError("Account has been deleted.")
 
         if not user.has_usable_password():

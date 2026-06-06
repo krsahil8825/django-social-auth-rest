@@ -9,6 +9,7 @@ from rest_framework import serializers
 from . import BaseSocialAuthSerializer, BaseUnlinkAuthSerializer
 from .. import conf
 from ..models import SocialAccountLinked, SocialAccountProvider
+from ..utils import is_user_deleted
 
 
 User = get_user_model()
@@ -62,7 +63,7 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
             if social_link:
                 user = social_link.user
 
-                if user.is_deleted:
+                if is_user_deleted(user):
                     raise serializers.ValidationError("Account has been deleted.")
 
                 return user
@@ -86,7 +87,7 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                 },
             )
 
-            if user.is_deleted:
+            if is_user_deleted(user):
                 raise serializers.ValidationError("Account has been deleted.")
 
             try:
@@ -125,7 +126,7 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
 
             user = self.context["request"].user
 
-            if user.is_deleted:
+            if is_user_deleted(user):
                 raise serializers.ValidationError("Account has been deleted.")
 
             try:
