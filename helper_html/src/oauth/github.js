@@ -1,7 +1,5 @@
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
-
 const GITHUB_REDIRECT_URI = import.meta.env.VITE_GITHUB_REDIRECT_URI;
 
 export async function githubLogin() {
@@ -25,7 +23,7 @@ export async function githubLogin() {
       `&scope=user:email` +
       `&state=${encodeURIComponent(state)}`;
 
-    console.log("GitHub OAuth URL:", githubUrl);
+    window.location.href = githubUrl;
   } catch (error) {
     console.error(error);
   }
@@ -35,7 +33,6 @@ export function handleGithubLogin() {
   const params = new URLSearchParams(window.location.search);
 
   const code = params.get("code");
-
   const state = params.get("state");
 
   if (!code || !state) {
@@ -43,6 +40,5 @@ export function handleGithubLogin() {
   }
 
   console.log("GitHub Code:", code);
-
   console.log("GitHub State:", state);
 }
