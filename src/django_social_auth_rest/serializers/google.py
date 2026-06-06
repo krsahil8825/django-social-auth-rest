@@ -41,7 +41,7 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
         return value
 
 
-class GoogleAuthSerializer(BaseGoogleAuthSerializer):
+class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
     def create(self, validated_data):
         email = self.user_info["email"]
 
