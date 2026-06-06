@@ -1,3 +1,10 @@
+"""
+django_social_auth_rest.serializers.google
+===========================================
+
+This module defines serializers for handling Google social authentication flows, including login, account linking, and unlinking.
+"""
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.db import transaction, IntegrityError

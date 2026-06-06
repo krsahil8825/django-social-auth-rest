@@ -1,3 +1,11 @@
+"""
+djnango_social_auth_rest.serializers.github
+===========================================
+
+This module defines serializers for handling GitHub social authentication flows, including login, account linking, and unlinking.
+"""
+
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.signing import BadSignature, SignatureExpired

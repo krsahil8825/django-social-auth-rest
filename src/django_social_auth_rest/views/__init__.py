@@ -15,7 +15,6 @@ from .. import conf
 
 from ..models import (
     SocialAccountLinked,
-    SocialAccountProvider,
 )
 
 from ..serializers import (
@@ -37,23 +36,19 @@ class SocialAccountLinkedAPIView(GenericAPIView):
     serializer_class = SocialAccountLinkedSerializer
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-
-        linked_accounts = SocialAccountLinked.objects.filter(user=user)
-        linked_providers = {account.provider for account in linked_accounts}
-
-        providers_status = []
-
-        for provider in SocialAccountProvider:
-            if not conf.PROVIDER_ENABLED.get(provider.value, False):
-                continue
-
-            providers_status.append(
-                {
-                    "label": provider.label,
-                    "is_linked": provider.value in linked_providers,
-                }
+        linked_providers = set(
+            SocialAccountLinked.objects.filter(user=request.user).values_list(
+                "provider", flat=True
             )
+        )
+
+        providers_status = [
+            {
+                "label": provider.label,
+                "is_linked": provider.value in linked_providers,
+            }
+            for provider in conf.ENABLED_PROVIDERS
+        ]
 
         serializer = self.get_serializer({"providers": providers_status})
 

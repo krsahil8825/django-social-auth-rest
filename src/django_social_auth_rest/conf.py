@@ -99,3 +99,6 @@ PROVIDER_ENABLED = {
     SocialAccountProvider.GITHUB: ENABLE_GITHUB_AUTH,
     SocialAccountProvider.GOOGLE: ENABLE_GOOGLE_AUTH,
 }
+ENABLED_PROVIDERS = [
+    provider for provider, enabled in PROVIDER_ENABLED.items() if enabled
+]
