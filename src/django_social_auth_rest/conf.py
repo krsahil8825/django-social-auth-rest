@@ -8,6 +8,9 @@ This module defines the configuration settings for the django_social_auth_rest a
 from django.conf import settings as django_settings
 from .models import SocialAccountProvider
 
+# ============================================
+# General configuration
+# ============================================
 
 # Throttling configuration
 SOCIAL_AUTH_THROTTLE_RATE = getattr(
@@ -22,6 +25,43 @@ SOCIAL_AUTH_STATE_SALT = getattr(
 SOCIAL_AUTH_STATE_MAX_AGE = getattr(
     django_settings, "SOCIAL_AUTH_STATE_MAX_AGE", 300
 )  # 5 minutes
+
+
+# ============================================
+# Email configuration
+# ============================================
+
+SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = getattr(
+    django_settings,
+    "SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS",
+    None,
+)
+"""
+Path to the email class that should be used when a new user account is created.
+
+Djoser users can use:
+    djoser.email.ConfirmationEmail
+
+Expected usage:
+
+    Email(`
+        request=request,
+        context={"user": user},
+    ).send(
+        to=[user.email]
+    )
+
+Example:
+
+    SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = (
+        "myapp.emails.CustomConfirmationEmail"
+    )
+"""
+
+
+# ===========================================
+# Provider-specific configuration
+# ===========================================
 
 
 # GitHub OAuth configuration
