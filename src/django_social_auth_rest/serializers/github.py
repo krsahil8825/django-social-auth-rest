@@ -1,124 +1,26 @@
-"""
-django_social_auth_rest.serializers
-====================================
-
-This module defines the serializers for handling social authentication
-and account linking/unlinking in the Django application.
-"""
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.signing import BadSignature, SignatureExpired
 from django.db import transaction, IntegrityError
 
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from rest_framework import serializers
-from uuid import uuid4
 import requests as web_requests
 
-from . import conf
-from .models import SocialAccountLinked, SocialAccountProvider
-from .tokens import verify_state_token
+from . import (
+    BaseSocialAuthSerializer,
+    BaseUnlinkAuthSerializer,
+    BaseAuthStateSerializer,
+)
+from .. import conf
+from ..models import SocialAccountLinked, SocialAccountProvider
+from ..tokens import verify_state_token
 
 
 User = get_user_model()
 
 
-# ===========================================================
-# LINK STATUS SERIALIZERS
-# ===========================================================
-
-
-class ProviderWithLinkedStatusSerializer(serializers.Serializer):
-    label = serializers.CharField()
-    is_linked = serializers.BooleanField()
-
-
-class SocialAccountLinkedSerializer(serializers.Serializer):
-    providers = ProviderWithLinkedStatusSerializer(many=True)
-
-
-# ===========================================================
-# BASE SERIALIZERS
-# ===========================================================
-
-
-class BaseSocialAuthSerializer(serializers.Serializer):
-    access = serializers.CharField(read_only=True)
-    refresh = serializers.CharField(read_only=True)
-
-    @staticmethod
-    def _generate_unique_username(email: str) -> str:
-        """Generate a unique username based on the email address."""
-
-        base_username = email.split("@")[0]
-        username = base_username
-
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}_{uuid4().hex[:8]}"
-
-        return username
-
-    @staticmethod
-    def _get_first_and_last_name(first_name: str, last_name: str, email: str):
-        if first_name and last_name:
-            return first_name, last_name
-        elif first_name and not last_name:
-            return first_name, first_name
-        else:
-            username_part = email.split("@")[0]
-            return username_part, username_part
-
-
-class BaseUnlinkAuthSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True)
-
-    PROVIDER = None
-
-    def validate(self, attrs):
-        if self.PROVIDER is None:
-            raise NotImplementedError("PROVIDER must be defined in the subclass.")
-
-        user = self.context["request"].user
-
-        if user.is_deleted:
-            raise serializers.ValidationError("Account has been deleted.")
-
-        if not user.has_usable_password():
-            raise serializers.ValidationError("Password is not set for this account.")
-
-        if not SocialAccountLinked.objects.filter(
-            user=user,
-            provider=self.PROVIDER,
-        ).exists():
-            raise serializers.ValidationError(
-                f"No linked {self.PROVIDER} account found."
-            )
-
-        if not user.check_password(attrs["password"]):
-            raise serializers.ValidationError("Incorrect password.")
-
-        return attrs
-
-    def unlink(self):
-        user = self.context["request"].user
-
-        SocialAccountLinked.objects.filter(
-            user=user,
-            provider=self.PROVIDER,
-        ).delete()
-
-        return user
-
-
-# ===========================================================
-# GITHUB SERIALIZERS
-# ===========================================================
-
-
-class GithubAuthStateSerializer(serializers.Serializer):
-    state = serializers.CharField(read_only=True)
+class GithubAuthStateSerializer(BaseAuthStateSerializer):
+    pass
 
 
 class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
@@ -351,140 +253,3 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
 
 class UnlinkGithubAuthSerializer(BaseUnlinkAuthSerializer):
     PROVIDER = SocialAccountProvider.GITHUB
-
-
-# ===========================================================
-# GOOGLE SERIALIZERS
-# ===========================================================
-
-
-class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
-    token = serializers.CharField(write_only=True)
-
-    def validate_token(self, value):
-        try:
-            user_info = id_token.verify_oauth2_token(
-                value,
-                google_requests.Request(),
-                conf.GOOGLE_CLIENT_ID,
-            )
-
-        except ValueError:
-            raise serializers.ValidationError("Invalid Google token.")
-
-        email = user_info.get("email")
-
-        if not email:
-            raise serializers.ValidationError("Email not found.")
-
-        if not user_info.get("email_verified"):
-            raise serializers.ValidationError("Google email is not verified.")
-
-        self.user_info = user_info
-
-        return value
-
-
-class GoogleAuthSerializer(BaseGoogleAuthSerializer):
-    def create(self, validated_data):
-        email = self.user_info["email"]
-
-        provider_user_id = self.user_info["sub"]
-
-        with transaction.atomic():
-            social_link = (
-                SocialAccountLinked.objects.select_related("user")
-                .filter(
-                    provider=SocialAccountProvider.GOOGLE,
-                    provider_user_id=provider_user_id,
-                )
-                .first()
-            )
-
-            # If social account is already linked, return the associated user
-
-            if social_link:
-                user = social_link.user
-
-                if user.is_deleted:
-                    raise serializers.ValidationError("Account has been deleted.")
-
-                return user
-
-            # Create new user and link social account
-
-            first_name, last_name = self._get_first_and_last_name(
-                self.user_info.get("given_name"),
-                self.user_info.get("family_name"),
-                email,
-            )
-
-            user, _ = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    "username": self._generate_unique_username(email),
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "is_active": True,
-                    "password": make_password(None),
-                },
-            )
-
-            if user.is_deleted:
-                raise serializers.ValidationError("Account has been deleted.")
-
-            try:
-                SocialAccountLinked.objects.create(
-                    user=user,
-                    provider=SocialAccountProvider.GOOGLE,
-                    provider_user_id=provider_user_id,
-                )
-            except IntegrityError:
-                raise serializers.ValidationError(
-                    "Your Google account is already linked to another user."
-                )
-
-            return user
-
-
-class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
-    def create(self, validated_data):
-
-        provider_user_id = self.user_info["sub"]
-
-        with transaction.atomic():
-            social_link = (
-                SocialAccountLinked.objects.select_related("user")
-                .filter(
-                    provider=SocialAccountProvider.GOOGLE,
-                    provider_user_id=provider_user_id,
-                )
-                .first()
-            )
-
-            if social_link:
-                raise serializers.ValidationError(
-                    "This Google account is already linked to another user."
-                )
-
-            user = self.context["request"].user
-
-            if user.is_deleted:
-                raise serializers.ValidationError("Account has been deleted.")
-
-            try:
-                SocialAccountLinked.objects.create(
-                    user=user,
-                    provider=SocialAccountProvider.GOOGLE,
-                    provider_user_id=provider_user_id,
-                )
-            except IntegrityError:
-                raise serializers.ValidationError(
-                    "Your Google account is already linked to another user."
-                )
-
-            return user
-
-
-class UnlinkGoogleAuthSerializer(BaseUnlinkAuthSerializer):
-    PROVIDER = SocialAccountProvider.GOOGLE
