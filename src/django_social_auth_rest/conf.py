@@ -6,6 +6,7 @@ This module defines the configuration settings for the django_social_auth_rest a
 """
 
 from django.conf import settings as django_settings
+from .models import SocialAccountProvider
 
 
 # Throttling configuration
@@ -32,3 +33,10 @@ ENABLE_GITHUB_AUTH = True if GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET else Fals
 # Google OAuth configuration
 GOOGLE_CLIENT_ID = getattr(django_settings, "GOOGLE_CLIENT_ID", None)
 ENABLE_GOOGLE_AUTH = True if GOOGLE_CLIENT_ID else False
+
+
+# Provider enablement configuration
+PROVIDER_ENABLED = {
+    SocialAccountProvider.GITHUB: ENABLE_GITHUB_AUTH,
+    SocialAccountProvider.GOOGLE: ENABLE_GOOGLE_AUTH,
+}
