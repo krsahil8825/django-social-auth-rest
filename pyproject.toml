@@ -81,6 +81,7 @@ local_scheme = "no-local-version"
 [dependency-groups]
 dev = [
     "djoser>=2.3.3",
+    "django-cors-headers>=4.7.0",
     "drf-spectacular>=0.29.0",
     "pytest>=9.0.3",
     "pytest-django>=4.12.0",
