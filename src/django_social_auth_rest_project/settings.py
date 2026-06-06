@@ -1,6 +1,9 @@
 from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -140,3 +143,12 @@ SPECTACULAR_SETTINGS = {
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+
+# OAuth settings
+SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = "djoser.email.ConfirmationEmail"
+SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
+
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
