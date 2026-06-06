@@ -8,7 +8,7 @@ mapping API endpoints to their corresponding views.
 
 from django.urls import path
 
-from .views import (
+from ..views import (
     SocialAccountLinkedAPIView,
 )
 
