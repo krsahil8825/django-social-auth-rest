@@ -37,39 +37,6 @@ SOCIAL_AUTH_STATE_MAX_AGE = getattr(
 
 
 # ===========================================================
-# Email settings
-# ===========================================================
-
-SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = getattr(
-    django_settings,
-    "SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS",
-    None,
-)
-"""
-Import path to the email class used when a new user account is created.
-
-Djoser users can use:
-
-    djoser.email.ConfirmationEmail
-
-The configured class is expected to support the following pattern:
-
-    >>> Email(
-    ...     request=request,
-    ...     context={"user": user},
-    ... ).send(
-    ...     to=[user.email]
-    ... )
-
-Example:
-
-    >>> SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = (
-    ...     "myapp.emails.CustomConfirmationEmail"
-    ... )
-"""
-
-
-# ===========================================================
 # User model settings
 # ===========================================================
 
@@ -97,9 +64,7 @@ If ``None``, deleted-account checks are disabled.
 # GitHub OAuth credentials
 GITHUB_CLIENT_ID = getattr(django_settings, "GITHUB_CLIENT_ID", None)
 GITHUB_CLIENT_SECRET = getattr(django_settings, "GITHUB_CLIENT_SECRET", None)
-ENABLE_GITHUB_AUTH = bool(
-    GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
-)
+ENABLE_GITHUB_AUTH = bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)
 
 # Google OAuth credentials
 GOOGLE_CLIENT_ID = getattr(django_settings, "GOOGLE_CLIENT_ID", None)
@@ -115,8 +80,6 @@ PROVIDER_ENABLED = {
     SocialAccountProvider.GOOGLE: ENABLE_GOOGLE_AUTH,
 }
 
-ENABLED_PROVIDERS = [
-    provider
-    for provider, enabled in PROVIDER_ENABLED.items()
-    if enabled
-]
+ENABLED_PROVIDERS = tuple(
+    provider for provider, enabled in PROVIDER_ENABLED.items() if enabled
+)

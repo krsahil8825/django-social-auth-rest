@@ -14,7 +14,13 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from . import BaseSocialAuthViewSet
-from ..emails import get_account_creation_email_class
+from ..signals import (
+    new_user_registered,
+    login_successful,
+    link_account_successful,
+    unlink_account_successful,
+)
+from ..models import SocialAccountProvider
 from ..serializers.google import (
     LoginGoogleAuthSerializer,
     LinkGoogleAuthSerializer,
@@ -57,13 +63,20 @@ class GoogleAuthViewSet(BaseSocialAuthViewSet):
 
         refresh = RefreshToken.for_user(user)
 
-        EmailClass = get_account_creation_email_class()
-
-        if EmailClass and user.last_login is None:
-            EmailClass(
+        if user.last_login is None:
+            new_user_registered.send_robust(
+                sender=self.__class__,
                 request=request,
-                context={"user": user},
-            ).send(to=[user.email])
+                user=user,
+                provider=SocialAccountProvider.GOOGLE,
+            )
+
+        login_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=user,
+            provider=SocialAccountProvider.GOOGLE,
+        )
 
         serializer = self.get_serializer(
             {
@@ -88,6 +101,13 @@ class GoogleAuthViewSet(BaseSocialAuthViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        link_account_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=request.user,
+            provider=SocialAccountProvider.GOOGLE,
+        )
+
         return Response(
             status=status.HTTP_204_NO_CONTENT,
         )
@@ -101,7 +121,14 @@ class GoogleAuthViewSet(BaseSocialAuthViewSet):
         serializer = self.get_serializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
-        serializer.unlink()
+        user = serializer.unlink()
+
+        unlink_account_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=user,
+            provider=SocialAccountProvider.GOOGLE,
+        )
 
         return Response(
             status=status.HTTP_204_NO_CONTENT,

@@ -14,8 +14,13 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from . import BaseSocialAuthViewSet
-from ..emails import get_account_creation_email_class
 from ..models import SocialAccountProvider
+from ..signals import (
+    new_user_registered,
+    login_successful,
+    link_account_successful,
+    unlink_account_successful,
+)
 from ..serializers.github import (
     StateGithubAuthSerializer,
     LoginGithubAuthSerializer,
@@ -76,13 +81,20 @@ class GithubAuthViewSet(BaseSocialAuthViewSet):
 
         user = serializer.save()
 
-        EmailClass = get_account_creation_email_class()
-
         if user.last_login is None:
-            EmailClass(
+            new_user_registered.send_robust(
+                sender=self.__class__,
                 request=request,
-                context={"user": user},
-            ).send(to=[user.email])
+                user=user,
+                provider=SocialAccountProvider.GITHUB,
+            )
+
+        login_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=user,
+            provider=SocialAccountProvider.GITHUB,
+        )
 
         refresh = RefreshToken.for_user(user)
 
@@ -106,6 +118,13 @@ class GithubAuthViewSet(BaseSocialAuthViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        link_account_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=request.user,
+            provider=SocialAccountProvider.GITHUB,
+        )
+
         return Response(
             status=status.HTTP_204_NO_CONTENT,
         )
@@ -119,7 +138,15 @@ class GithubAuthViewSet(BaseSocialAuthViewSet):
         serializer = self.get_serializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
-        serializer.unlink()
+
+        user = serializer.unlink()
+
+        unlink_account_successful.send_robust(
+            sender=self.__class__,
+            request=request,
+            user=user,
+            provider=SocialAccountProvider.GITHUB,
+        )
 
         return Response(
             status=status.HTTP_204_NO_CONTENT,

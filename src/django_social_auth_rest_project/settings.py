@@ -150,7 +150,6 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # OAuth settings
-SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = "djoser.email.ConfirmationEmail"
 SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
