@@ -1,35 +1,44 @@
 """
 django_social_auth_rest.conf
-===============================
+============================
 
-This module defines the configuration settings for the django_social_auth_rest app.
+Configuration values used throughout the social authentication package.
+
+All settings can be overridden through the Django settings module.
 """
 
 from django.conf import settings as django_settings
+
 from .models import SocialAccountProvider
 
-# ============================================
-# General configuration
-# ============================================
 
-# Throttling configuration
+# ===========================================================
+# General settings
+# ===========================================================
+
+# Request throttling
 SOCIAL_AUTH_THROTTLE_RATE = getattr(
-    django_settings, "SOCIAL_AUTH_THROTTLE_RATE", "10/minute"
+    django_settings,
+    "SOCIAL_AUTH_THROTTLE_RATE",
+    "10/minute",
 )
 
-
-# state token configuration
+# OAuth state token settings
 SOCIAL_AUTH_STATE_SALT = getattr(
-    django_settings, "SOCIAL_AUTH_STATE_SALT", "social-auth-state-salt"
+    django_settings,
+    "SOCIAL_AUTH_STATE_SALT",
+    "social-auth-state-salt",
 )
 SOCIAL_AUTH_STATE_MAX_AGE = getattr(
-    django_settings, "SOCIAL_AUTH_STATE_MAX_AGE", 300
+    django_settings,
+    "SOCIAL_AUTH_STATE_MAX_AGE",
+    300,
 )  # 5 minutes
 
 
-# ============================================
-# Email configuration
-# ============================================
+# ===========================================================
+# Email settings
+# ===========================================================
 
 SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = getattr(
     django_settings,
@@ -37,30 +46,32 @@ SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = getattr(
     None,
 )
 """
-Path to the email class that should be used when a new user account is created.
+Import path to the email class used when a new user account is created.
 
 Djoser users can use:
+
     djoser.email.ConfirmationEmail
 
-Expected usage:
+The configured class is expected to support the following pattern:
 
-    Email(`
-        request=request,
-        context={"user": user},
-    ).send(
-        to=[user.email]
-    )
+    >>> Email(
+    ...     request=request,
+    ...     context={"user": user},
+    ... ).send(
+    ...     to=[user.email]
+    ... )
 
 Example:
 
-    SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = (
-        "myapp.emails.CustomConfirmationEmail"
-    )
+    >>> SOCIAL_AUTH_ACCOUNT_CREATION_EMAIL_CLASS = (
+    ...     "myapp.emails.CustomConfirmationEmail"
+    ... )
 """
 
-# ============================================
-# User model configuration
-# ============================================
+
+# ===========================================================
+# User model settings
+# ===========================================================
 
 SOCIAL_AUTH_USER_DELETED_FIELD = getattr(
     django_settings,
@@ -68,37 +79,44 @@ SOCIAL_AUTH_USER_DELETED_FIELD = getattr(
     None,
 )
 """
-Optional field name on the User model that indicates a soft-deleted account.
+Optional field on the user model that indicates whether an account
+has been soft-deleted.
 
 Example:
 
-    SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
+    >>> SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
 
-If None, no deleted-account check is performed.
+If ``None``, deleted-account checks are disabled.
 """
 
 
-# ===========================================
-# Provider-specific configuration
-# ===========================================
+# ===========================================================
+# OAuth provider settings
+# ===========================================================
 
-
-# GitHub OAuth configuration
+# GitHub OAuth credentials
 GITHUB_CLIENT_ID = getattr(django_settings, "GITHUB_CLIENT_ID", None)
 GITHUB_CLIENT_SECRET = getattr(django_settings, "GITHUB_CLIENT_SECRET", None)
-ENABLE_GITHUB_AUTH = True if GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET else False
+ENABLE_GITHUB_AUTH = bool(
+    GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+)
 
-
-# Google OAuth configuration
+# Google OAuth credentials
 GOOGLE_CLIENT_ID = getattr(django_settings, "GOOGLE_CLIENT_ID", None)
-ENABLE_GOOGLE_AUTH = True if GOOGLE_CLIENT_ID else False
+ENABLE_GOOGLE_AUTH = bool(GOOGLE_CLIENT_ID)
 
 
-# Provider enablement configuration
+# ===========================================================
+# Enabled providers
+# ===========================================================
+
 PROVIDER_ENABLED = {
     SocialAccountProvider.GITHUB: ENABLE_GITHUB_AUTH,
     SocialAccountProvider.GOOGLE: ENABLE_GOOGLE_AUTH,
 }
+
 ENABLED_PROVIDERS = [
-    provider for provider, enabled in PROVIDER_ENABLED.items() if enabled
+    provider
+    for provider, enabled in PROVIDER_ENABLED.items()
+    if enabled
 ]

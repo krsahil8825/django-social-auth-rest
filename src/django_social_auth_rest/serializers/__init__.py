@@ -1,9 +1,12 @@
 """
 django_social_auth_rest.serializers
-====================================
+===================================
 
-This module defines the serializers for handling social authentication
-and account linking/unlinking in the Django application.
+Base serializers used throughout the social authentication workflow.
+
+This module provides shared serializer implementations for provider
+link-status reporting, OAuth state handling, authentication flows,
+and account unlinking operations.
 """
 
 from django.contrib.auth import get_user_model
@@ -23,14 +26,20 @@ User = get_user_model()
 
 
 class ProviderWithLinkedStatusSerializer(serializers.Serializer):
-    """Serializer for representing a social authentication provider along with its linked status."""
+    """
+    Represents a social authentication provider and whether it is
+    currently linked to the user's account.
+    """
 
     label = serializers.CharField()
     is_linked = serializers.BooleanField()
 
 
 class SocialAccountLinkedSerializer(serializers.Serializer):
-    """Serializer for representing the linked status of all social authentication providers for a user."""
+    """
+    Serializer used to return the linked status of all supported
+    social authentication providers for a user.
+    """
 
     providers = ProviderWithLinkedStatusSerializer(many=True)
 
@@ -41,20 +50,33 @@ class SocialAccountLinkedSerializer(serializers.Serializer):
 
 
 class BaseAuthStateSerializer(serializers.Serializer):
-    """Base serializer for handling the state parameter in social authentication flows."""
+    """
+    Base serializer that exposes an OAuth state token used during
+    social authentication flows.
+    """
 
     state = serializers.CharField(read_only=True)
 
 
 class BaseSocialAuthSerializer(serializers.Serializer):
-    """Base serializer for handling social authentication flows."""
+    """
+    Base serializer for social authentication providers.
+
+    Provides common fields and helper utilities used when creating
+    or authenticating users through external identity providers.
+    """
 
     access = serializers.CharField(read_only=True)
     refresh = serializers.CharField(read_only=True)
 
     @staticmethod
     def _generate_unique_username(email: str) -> str:
-        """Generate a unique username based on the email address."""
+        """
+        Generate a unique username derived from the email address.
+
+        If the generated username already exists, a random suffix is
+        appended until a unique value is found.
+        """
 
         base_username = email.split("@")[0]
         username = base_username
@@ -66,6 +88,14 @@ class BaseSocialAuthSerializer(serializers.Serializer):
 
     @staticmethod
     def _get_first_and_last_name(first_name: str, last_name: str, email: str):
+        """
+        Determine suitable first and last name values from the
+        provider response.
+
+        Falls back to the email username when name information is
+        unavailable.
+        """
+
         if first_name and last_name:
             return first_name, last_name
         elif first_name and not last_name:
@@ -76,13 +106,24 @@ class BaseSocialAuthSerializer(serializers.Serializer):
 
 
 class BaseUnlinkAuthSerializer(serializers.Serializer):
-    """Base serializer for handling account unlinking flows."""
+    """
+    Base serializer for unlinking a social authentication provider
+    from a user account.
+
+    Subclasses must define the provider identifier through the
+    ``PROVIDER`` attribute.
+    """
 
     password = serializers.CharField(write_only=True)
 
     PROVIDER = None
 
     def validate(self, attrs):
+        """
+        Validate that the provider is linked, the account is active,
+        and the supplied password matches the authenticated user.
+        """
+
         if self.PROVIDER is None:
             raise NotImplementedError("PROVIDER must be defined in the subclass.")
 
@@ -108,6 +149,11 @@ class BaseUnlinkAuthSerializer(serializers.Serializer):
         return attrs
 
     def unlink(self):
+        """
+        Remove the configured social provider association from the
+        authenticated user's account.
+        """
+
         user = self.context["request"].user
 
         SocialAccountLinked.objects.filter(

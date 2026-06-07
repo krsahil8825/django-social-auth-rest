@@ -1,10 +1,13 @@
 """
-djnango_social_auth_rest.serializers.github
-===========================================
+django_social_auth_rest.serializers.github
+==========================================
 
-This module defines serializers for handling GitHub social authentication flows, including login, account linking, and unlinking.
+Serializers for GitHub authentication workflows.
+
+This module provides serializers for generating OAuth state tokens,
+authenticating users with GitHub, linking GitHub accounts to existing
+users, and unlinking previously connected GitHub accounts.
 """
-
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -29,10 +32,21 @@ User = get_user_model()
 
 
 class StateGithubAuthSerializer(BaseAuthStateSerializer):
+    """
+    Serializer used to generate and expose a GitHub OAuth state token.
+    """
+
     pass
 
 
 class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
+    """
+    Base serializer for GitHub authentication flows.
+
+    Handles OAuth state validation and provides helper methods for
+    exchanging authorization codes and retrieving GitHub account data.
+    """
+
     code = serializers.CharField(write_only=True)
     state = serializers.CharField(write_only=True)
 
@@ -42,7 +56,9 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
     @staticmethod
     def _get_access_token(code: str) -> str:
-        """Exchange GitHub code for access token."""
+        """
+        Exchange a GitHub authorization code for an access token.
+        """
 
         response = web_requests.post(
             BaseGithubAuthSerializer.GITHUB_ACCESS_TOKEN_URL,
@@ -77,7 +93,9 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
     @staticmethod
     def _get_user_data(access_token: str) -> dict:
-        """Fetch authenticated GitHub user."""
+        """
+        Retrieve profile information for the authenticated GitHub user.
+        """
 
         response = web_requests.get(
             BaseGithubAuthSerializer.GITHUB_USER_URL,
@@ -94,7 +112,9 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
     @staticmethod
     def _get_primary_verified_email(access_token: str) -> str:
-        """Fetch user's primary verified GitHub email."""
+        """
+        Retrieve the user's primary verified email address from GitHub.
+        """
 
         response = web_requests.get(
             BaseGithubAuthSerializer.GITHUB_EMAILS_URL,
@@ -124,6 +144,11 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
         return primary_email.lower().strip()
 
     def validate(self, attrs):
+        """
+        Validate the OAuth state token and exchange the authorization
+        code for a GitHub access token.
+        """
+
         try:
             verify_state_token(attrs.get("state"), SocialAccountProvider.GITHUB.value)
         except (BadSignature, SignatureExpired) as exc:
@@ -146,7 +171,19 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
 
 class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
+    """
+    Authenticate a user through GitHub.
+
+    Returns an existing linked user when available or creates a new
+    user account and GitHub association when necessary.
+    """
+
     def create(self, validated_data):
+        """
+        Resolve or create a user account from the authenticated
+        GitHub identity.
+        """
+
         github_user = self._get_user_data(self.access_token)
 
         provider_user_id = github_user.get("id")
@@ -177,7 +214,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 return user
 
             # No linked account, create new user and link social account
-
+            
             email = self._get_primary_verified_email(self.access_token)
 
             full_name = (github_user.get("name") or "").strip()
@@ -219,7 +256,15 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
 
 
 class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
+    """
+    Link a GitHub account to an authenticated user.
+    """
+
     def create(self, validated_data):
+        """
+        Create a GitHub account association for the authenticated user.
+        """
+
         provider_user_id = self._get_user_data(self.access_token).get("id")
 
         if not provider_user_id:
@@ -243,6 +288,7 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
 
             user = self.context["request"].user
+
             if is_user_deleted(user):
                 raise serializers.ValidationError("Account has been deleted.")
 
@@ -261,4 +307,8 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
 
 
 class UnlinkGithubAuthSerializer(BaseUnlinkAuthSerializer):
+    """
+    Remove the GitHub account association from the authenticated user.
+    """
+
     PROVIDER = SocialAccountProvider.GITHUB

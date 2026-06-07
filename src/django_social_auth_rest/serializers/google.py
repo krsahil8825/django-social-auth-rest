@@ -1,8 +1,12 @@
 """
 django_social_auth_rest.serializers.google
-===========================================
+==========================================
 
-This module defines serializers for handling Google social authentication flows, including login, account linking, and unlinking.
+Serializers for Google authentication workflows.
+
+This module provides serializers for authenticating users with Google,
+linking Google accounts to existing users, and unlinking previously
+connected Google accounts.
 """
 
 from django.contrib.auth import get_user_model
@@ -23,9 +27,22 @@ User = get_user_model()
 
 
 class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
+    """
+    Base serializer for Google authentication flows.
+
+    Handles Google ID token validation and exposes verified user
+    information for downstream authentication and account-linking
+    operations.
+    """
+
     token = serializers.CharField(write_only=True)
 
     def validate_token(self, value):
+        """
+        Validate a Google ID token and extract the authenticated
+        user's profile information.
+        """
+
         try:
             user_info = id_token.verify_oauth2_token(
                 value,
@@ -50,7 +67,19 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
 
 
 class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
+    """
+    Authenticate a user through Google.
+
+    Returns an existing linked user when available or creates a new
+    user account and Google association when necessary.
+    """
+
     def create(self, validated_data):
+        """
+        Resolve or create a user account from the authenticated
+        Google identity.
+        """
+
         email = self.user_info["email"]
 
         provider_user_id = self.user_info["sub"]
@@ -112,7 +141,14 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
 
 
 class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
+    """
+    Link a Google account to an authenticated user.
+    """
+
     def create(self, validated_data):
+        """
+        Create a Google account association for the authenticated user.
+        """
 
         provider_user_id = self.user_info["sub"]
 
@@ -151,4 +187,8 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
 
 
 class UnlinkGoogleAuthSerializer(BaseUnlinkAuthSerializer):
+    """
+    Remove the Google account association from the authenticated user.
+    """
+
     PROVIDER = SocialAccountProvider.GOOGLE

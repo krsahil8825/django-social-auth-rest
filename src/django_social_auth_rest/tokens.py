@@ -1,8 +1,9 @@
 """
-accounts.tokens
-================
+django_social_auth_rest.tokens
+=============================
 
-This module defines token generation and verification functions
+Utilities for generating and validating signed tokens used by the
+social authentication workflow.
 """
 
 from django.core import signing
@@ -13,7 +14,9 @@ from .models import SocialAccountProvider
 
 
 def generate_state_token(provider: SocialAccountProvider) -> str:
-    """Generate signed OAuth state token."""
+    """
+    Generate a signed OAuth state token for the given provider.
+    """
 
     data = {
         "provider": provider.value,
@@ -28,7 +31,10 @@ def generate_state_token(provider: SocialAccountProvider) -> str:
 
 
 def verify_state_token(token: str, provider_value: str) -> None:
-    """Verify signed OAuth state token."""
+    """
+    Validate a signed OAuth state token and ensure it matches the
+    expected provider.
+    """
 
     try:
         data = signing.loads(

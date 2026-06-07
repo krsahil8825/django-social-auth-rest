@@ -2,8 +2,7 @@
 django_social_auth_rest.urls
 ============================
 
-This module defines the URL patterns for the django_social_auth_rest app,
-mapping API endpoints to their corresponding views.
+URL patterns for social authentication endpoints.
 """
 
 from django.urls import path
@@ -14,6 +13,8 @@ from ..views import (
 
 urlpatterns = [
     path(
-        "linked-accounts/", SocialAccountLinkedAPIView.as_view(), name="linked-accounts"
+        "linked-accounts/",
+        SocialAccountLinkedAPIView.as_view(),
+        name="linked-accounts",
     ),
 ]

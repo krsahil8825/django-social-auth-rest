@@ -1,16 +1,20 @@
 """
 django_social_auth_rest.utils
-==============================
+============================
 
-This module contains utility functions for the django_social_auth_rest app.
+Utility helpers used throughout the social authentication workflow.
 """
 
 from django.contrib.auth.models import User
+
 from . import conf
 
 
 def is_user_deleted(user: User) -> bool:
-    """Check whether a user is marked as deleted."""
+    """
+    Determine whether the given user is marked as deleted.
+    If no user deletion field is configured, this will always return ``False``.
+    """
 
     field_name = conf.SOCIAL_AUTH_USER_DELETED_FIELD
 

@@ -1,8 +1,9 @@
 """
 django_social_auth_rest.models
-===============================
+==============================
 
-This module helps to manage the social account linking for users in the Django application.
+Database models for storing social account associations and provider
+definitions used by the authentication system.
 """
 
 from django.contrib.auth import get_user_model
@@ -13,7 +14,9 @@ User = get_user_model()
 
 
 class SocialAccountProvider(models.TextChoices):
-    """Enum to represent supported social account providers."""
+    """
+    Supported social authentication providers.
+    """
 
     GOOGLE = "google", "Google"
     GITHUB = "github", "GitHub"
@@ -21,7 +24,10 @@ class SocialAccountProvider(models.TextChoices):
 
 
 class SocialAccountLinked(models.Model):
-    """Model to represent a linked social account for a user."""
+    """
+    Stores the association between a user account and a social
+    authentication provider account.
+    """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     provider = models.CharField(max_length=20, choices=SocialAccountProvider.choices)
@@ -41,4 +47,8 @@ class SocialAccountLinked(models.Model):
         ]
 
     def __str__(self):
+        """
+        Return a human-readable representation of the linked account.
+        """
+
         return f"{self.user.email} - {self.provider}"

@@ -2,7 +2,10 @@
 django_social_auth_rest.views
 =============================
 
-This module defines the views for the django_social_auth_rest app
+Views used by the social authentication system.
+
+This module provides endpoints for social account management and
+shared view classes used by provider-specific authentication views.
 """
 
 from rest_framework import status
@@ -24,18 +27,25 @@ from ..serializers import (
 from ..throttle import SocialAuthThrottle
 
 
-# ===========================================
-# SOCIAL LINK STATUS VIEWS
-# ===========================================
+# ===========================================================
+# Social account status views
+# ===========================================================
 
 
 class SocialAccountLinkedAPIView(GenericAPIView):
-    """API view to check which social accounts are linked to the authenticated user."""
+    """
+    Return the link status of all enabled social authentication
+    providers for the authenticated user.
+    """
 
     permission_classes = [IsAuthenticated]
     serializer_class = SocialAccountLinkedSerializer
 
     def get(self, request, *args, **kwargs):
+        """
+        Retrieve the social account link status for the current user.
+        """
+
         linked_providers = set(
             SocialAccountLinked.objects.filter(user=request.user).values_list(
                 "provider", flat=True
@@ -55,13 +65,18 @@ class SocialAccountLinkedAPIView(GenericAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# ===========================================
-# BASE VIEWS
-# ===========================================
+# ===========================================================
+# Base views
+# ===========================================================
 
 
 class BaseSocialAuthViewSet(GenericViewSet):
-    """Base viewset for handling social authentication flows."""
+    """
+    Base viewset for social authentication providers.
+
+    Handles permission selection and request throttling for provider
+    authentication, account linking, and unlinking actions.
+    """
 
     public_actions = []
     protected_actions = []
@@ -69,10 +84,14 @@ class BaseSocialAuthViewSet(GenericViewSet):
     throttle_classes = [SocialAuthThrottle]
 
     def get_permissions(self):
-        """Return the appropriate permissions based on the action."""
+        """
+        Return permissions based on the current action.
+        """
 
         if self.action in self.public_actions:
             return [AllowAny()]
+
         elif self.action in self.protected_actions:
             return [IsAuthenticated()]
+
         return super().get_permissions()
