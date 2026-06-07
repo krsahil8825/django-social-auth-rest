@@ -6,7 +6,7 @@ authors = [{ name = "Kumar Sahil", email = "krsahil8825@gmail.com" }]
 
 maintainers = [{ name = "Kumar Sahil", email = "krsahil8825@gmail.com" }]
 
-description = "A Django package for social authentication in Django REST APIs, currently supporting Google and GitHub OAuth with Simple JWT integration."
+description = "A production-ready social authentication solution for Django REST Framework with provider abstraction, account linking, configurable security settings, and seamless JWT integration."
 
 readme = "README.md"
 
