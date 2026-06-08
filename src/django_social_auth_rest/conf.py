@@ -2,38 +2,57 @@
 django_social_auth_rest.conf
 ============================
 
-Configuration values used throughout the social authentication package.
+Centralized configuration for django_social_auth_rest.
 
-All settings can be overridden through the Django settings module.
+Settings are loaded from Django's settings module, validated where
+necessary, and exposed as normalized constants for internal use.
 """
 
 from django.conf import settings as django_settings
+from django.core.exceptions import ImproperlyConfigured
+import warnings
 
 from .models import SocialAccountProvider
 
 
 # ===========================================================
-# General settings
+# Throttle settings
 # ===========================================================
 
-# Request throttling
 SOCIAL_AUTH_THROTTLE_RATE = getattr(
     django_settings,
     "SOCIAL_AUTH_THROTTLE_RATE",
     "10/minute",
 )
 
-# OAuth state token settings
-SOCIAL_AUTH_STATE_SALT = getattr(
-    django_settings,
-    "SOCIAL_AUTH_STATE_SALT",
-    "social-auth-state-salt",
-)
-SOCIAL_AUTH_STATE_MAX_AGE = getattr(
-    django_settings,
-    "SOCIAL_AUTH_STATE_MAX_AGE",
-    300,
-)  # 5 minutes
+# ===========================================================
+# State parameter settings
+# ===========================================================
+
+_salt = getattr(django_settings, "SOCIAL_AUTH_STATE_SALT", None)
+if not _salt and not getattr(django_settings, "DEBUG", False):
+    raise ImproperlyConfigured(
+        "SOCIAL_AUTH_STATE_SALT must be set in your Django settings. "
+        "Use a long, random secret value such as "
+        "secrets.token_hex(32)."
+    )
+
+if _salt and len(_salt) < 32:
+    warnings.warn(
+        "SOCIAL_AUTH_STATE_SALT is shorter than 32 characters. "
+        "Consider using a higher-entropy value.",
+        stacklevel=2,
+    )
+
+SOCIAL_AUTH_STATE_SALT = _salt
+
+_max_age = getattr(django_settings, "SOCIAL_AUTH_STATE_MAX_AGE", 300)
+if not isinstance(_max_age, int) or _max_age <= 0 or _max_age > 3600:
+    raise ImproperlyConfigured(
+        "SOCIAL_AUTH_STATE_MAX_AGE must be a positive integer not greater than 3600."
+    )
+
+SOCIAL_AUTH_STATE_MAX_AGE = _max_age
 
 
 # ===========================================================
@@ -46,14 +65,10 @@ SOCIAL_AUTH_USER_DELETED_FIELD = getattr(
     None,
 )
 """
-Optional field on the user model that indicates whether an account
-has been soft-deleted.
+Optional user model field used to identify soft-deleted accounts.
 
 Example:
-
-    >>> SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
-
-If ``None``, deleted-account checks are disabled.
+    SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
 """
 
 
@@ -61,13 +76,26 @@ If ``None``, deleted-account checks are disabled.
 # OAuth provider settings
 # ===========================================================
 
-# GitHub OAuth credentials
-GITHUB_CLIENT_ID = getattr(django_settings, "GITHUB_CLIENT_ID", None)
-GITHUB_CLIENT_SECRET = getattr(django_settings, "GITHUB_CLIENT_SECRET", None)
+GITHUB_CLIENT_ID = getattr(
+    django_settings,
+    "GITHUB_CLIENT_ID",
+    None,
+)
+
+GITHUB_CLIENT_SECRET = getattr(
+    django_settings,
+    "GITHUB_CLIENT_SECRET",
+    None,
+)
+
 ENABLE_GITHUB_AUTH = bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)
 
-# Google OAuth credentials
-GOOGLE_CLIENT_ID = getattr(django_settings, "GOOGLE_CLIENT_ID", None)
+GOOGLE_CLIENT_ID = getattr(
+    django_settings,
+    "GOOGLE_CLIENT_ID",
+    None,
+)
+
 ENABLE_GOOGLE_AUTH = bool(GOOGLE_CLIENT_ID)
 
 
