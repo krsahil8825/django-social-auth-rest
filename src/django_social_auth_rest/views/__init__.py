@@ -24,7 +24,7 @@ from ..serializers import (
     SocialAccountLinkedSerializer,
 )
 
-from ..throttle import SocialAuthThrottle
+from ..throttle import SocialAuthAnonThrottle, SocialAuthUserThrottle
 
 
 # ===========================================================
@@ -81,7 +81,7 @@ class BaseSocialAuthViewSet(GenericViewSet):
     public_actions = []
     protected_actions = []
 
-    throttle_classes = [SocialAuthThrottle]
+    throttle_classes = [SocialAuthAnonThrottle, SocialAuthUserThrottle]
 
     def get_permissions(self):
         """
