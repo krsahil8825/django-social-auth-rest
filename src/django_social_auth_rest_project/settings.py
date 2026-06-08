@@ -149,7 +149,8 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 CORS_ALLOW_ALL_ORIGINS = True
 
 
-# OAuth settings
+# Social Auth Settings
+SOCIAL_AUTH_STATE_SALT = "test-salt-for-local-development-only-change-in-production"
 SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
