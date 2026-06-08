@@ -9,18 +9,20 @@ authenticating users with GitHub, linking GitHub accounts to existing
 users, and unlinking previously connected GitHub accounts.
 """
 
+import logging
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.signing import BadSignature, SignatureExpired
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 
 from rest_framework import serializers
 import requests as web_requests
 
 from . import (
+    BaseAuthStateSerializer,
     BaseSocialAuthSerializer,
     BaseUnlinkAuthSerializer,
-    BaseAuthStateSerializer,
 )
 from .. import conf
 from ..models import SocialAccountLinked, SocialAccountProvider
@@ -28,13 +30,13 @@ from ..tokens import verify_state_token
 from ..utils import is_user_deleted
 
 
+logger = logging.getLogger(__name__)
+
 User = get_user_model()
 
 
 class StateGithubAuthSerializer(BaseAuthStateSerializer):
-    """
-    Serializer used to generate and expose a GitHub OAuth state token.
-    """
+    """Generate a GitHub OAuth state token."""
 
     pass
 
@@ -56,76 +58,145 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
     @staticmethod
     def _get_access_token(code: str) -> str:
-        """
-        Exchange a GitHub authorization code for an access token.
-        """
+        """Exchange a GitHub authorization code for an access token."""
 
-        response = web_requests.post(
-            BaseGithubAuthSerializer.GITHUB_ACCESS_TOKEN_URL,
-            headers={
-                "Accept": "application/json",
-            },
-            data={
-                "client_id": conf.GITHUB_CLIENT_ID,
-                "client_secret": conf.GITHUB_CLIENT_SECRET,
-                "code": code,
-            },
-            timeout=15,
-        )
+        try:
+            response = web_requests.post(
+                BaseGithubAuthSerializer.GITHUB_ACCESS_TOKEN_URL,
+                headers={"Accept": "application/json"},
+                data={
+                    "client_id": conf.GITHUB_CLIENT_ID,
+                    "client_secret": conf.GITHUB_CLIENT_SECRET,
+                    "code": code,
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
 
-        response.raise_for_status()
+        except web_requests.Timeout:
+            raise serializers.ValidationError(
+                "GitHub took too long to respond. Please try again."
+            )
+
+        except web_requests.HTTPError as exc:
+            logger.warning(
+                "GitHub token exchange failed with HTTP error: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to contact GitHub. Please try again later."
+            )
+
+        except web_requests.RequestException as exc:
+            logger.warning(
+                "GitHub token exchange request failed: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to contact GitHub. Please try again later."
+            )
 
         data = response.json()
 
         if data.get("error"):
+            logger.warning(
+                "GitHub token exchange rejected by provider. error=%s description=%s",
+                data.get("error"),
+                data.get("error_description"),
+            )
             raise serializers.ValidationError(
-                f"GitHub token exchange error: {data.get('error_description', 'Failed to authenticate with GitHub.')}"
+                "GitHub authentication could not be completed."
             )
 
         access_token = data.get("access_token")
 
         if not access_token:
+            logger.error(
+                "GitHub token exchange response did not contain an access token."
+            )
             raise serializers.ValidationError(
-                "Access token not found in GitHub response."
+                "GitHub authentication could not be completed."
             )
 
         return access_token
 
     @staticmethod
     def _get_user_data(access_token: str) -> dict:
-        """
-        Retrieve profile information for the authenticated GitHub user.
-        """
+        """Retrieve profile information for the authenticated GitHub user."""
 
-        response = web_requests.get(
-            BaseGithubAuthSerializer.GITHUB_USER_URL,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/json",
-            },
-            timeout=15,
-        )
+        try:
+            response = web_requests.get(
+                BaseGithubAuthSerializer.GITHUB_USER_URL,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/json",
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
 
-        response.raise_for_status()
+        except web_requests.Timeout:
+            raise serializers.ValidationError(
+                "GitHub took too long to respond. Please try again."
+            )
+
+        except web_requests.HTTPError as exc:
+            logger.warning(
+                "Failed to retrieve GitHub user profile: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to retrieve your GitHub profile information."
+            )
+
+        except web_requests.RequestException as exc:
+            logger.warning(
+                "GitHub profile request failed: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to retrieve your GitHub profile information."
+            )
 
         return response.json()
 
     @staticmethod
     def _get_primary_verified_email(access_token: str) -> str:
-        """
-        Retrieve the user's primary verified email address from GitHub.
-        """
+        """Retrieve the primary verified email address for the GitHub account."""
 
-        response = web_requests.get(
-            BaseGithubAuthSerializer.GITHUB_EMAILS_URL,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/json",
-            },
-            timeout=15,
-        )
+        try:
+            response = web_requests.get(
+                BaseGithubAuthSerializer.GITHUB_EMAILS_URL,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/json",
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
 
-        response.raise_for_status()
+        except web_requests.Timeout:
+            raise serializers.ValidationError(
+                "GitHub took too long to respond. Please try again."
+            )
+
+        except web_requests.HTTPError as exc:
+            logger.warning(
+                "Failed to retrieve GitHub email addresses: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to retrieve your verified GitHub email address."
+            )
+
+        except web_requests.RequestException as exc:
+            logger.warning(
+                "GitHub email request failed: %s",
+                exc,
+            )
+            raise serializers.ValidationError(
+                "Unable to retrieve your verified GitHub email address."
+            )
 
         emails = response.json()
 
@@ -139,7 +210,9 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
         )
 
         if not primary_email:
-            raise serializers.ValidationError("No primary verified GitHub email found.")
+            raise serializers.ValidationError(
+                "Your GitHub account does not have a primary verified email address."
+            )
 
         return primary_email.lower().strip()
 
@@ -150,46 +223,43 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
         """
 
         try:
-            verify_state_token(attrs.get("state"), SocialAccountProvider.GITHUB.value)
+            verify_state_token(
+                attrs.get("state"),
+                SocialAccountProvider.GITHUB.value,
+            )
         except (BadSignature, SignatureExpired) as exc:
-            raise serializers.ValidationError("Invalid state token.") from exc
-
-        try:
-            self.access_token = self._get_access_token(attrs.get("code"))
-
-        except web_requests.Timeout:
             raise serializers.ValidationError(
-                "GitHub request timed out. Please try again."
-            )
+                "Invalid or expired authentication state."
+            ) from exc
 
-        except web_requests.RequestException:
-            raise serializers.ValidationError(
-                "Failed to exchange code for access token."
-            )
+        self._access_token = self._get_access_token(attrs.get("code"))
 
         return attrs
 
 
 class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
     """
-    Authenticate a user through GitHub.
+    Authenticate a user using a GitHub account.
 
     Returns an existing linked user when available or creates a new
     user account and GitHub association when necessary.
     """
 
     def create(self, validated_data):
-        """
-        Resolve or create a user account from the authenticated
-        GitHub identity.
-        """
+        """Resolve or create a user account from the GitHub identity."""
 
-        github_user = self._get_user_data(self.access_token)
+        access_token = self._access_token
+        # Clear the access token from the serializer instance to prevent accidental reuse in subsequent operations.
+        self._access_token = None
+
+        github_user = self._get_user_data(access_token)
 
         provider_user_id = github_user.get("id")
 
         if not provider_user_id:
-            raise serializers.ValidationError("GitHub user ID not found.")
+            raise serializers.ValidationError(
+                "GitHub did not return a valid account identifier."
+            )
 
         provider_user_id = str(provider_user_id)
 
@@ -203,22 +273,19 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 .first()
             )
 
-            # Existing linked account
-
             if social_link:
                 user = social_link.user
 
                 if is_user_deleted(user):
-                    raise serializers.ValidationError("Account has been deleted.")
+                    raise serializers.ValidationError(
+                        "This account is no longer available."
+                    )
 
                 return user
 
-            # No linked account, create new user and link social account
-            
-            email = self._get_primary_verified_email(self.access_token)
+            email = self._get_primary_verified_email(access_token)
 
             full_name = (github_user.get("name") or "").strip()
-
             name_parts = full_name.split(maxsplit=1)
 
             first_name, last_name = self._get_first_and_last_name(
@@ -227,19 +294,24 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 email,
             )
 
-            user, _ = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    "username": self._generate_unique_username(email),
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "is_active": True,
-                    "password": make_password(None),
-                },
-            )
+            try:
+                user, _ = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        "username": self._generate_unique_username(email),
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "is_active": True,
+                        "password": make_password(None),
+                    },
+                )
+            except IntegrityError:
+                user = User.objects.get(email=email)
 
             if is_user_deleted(user):
-                raise serializers.ValidationError("Account has been deleted.")
+                raise serializers.ValidationError(
+                    "This account is no longer available."
+                )
 
             try:
                 SocialAccountLinked.objects.create(
@@ -249,26 +321,27 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
             except IntegrityError:
                 raise serializers.ValidationError(
-                    "Your GitHub account is already linked to another user."
+                    "This GitHub account is already linked to another user."
                 )
 
             return user
 
 
 class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
-    """
-    Link a GitHub account to an authenticated user.
-    """
+    """Link a GitHub account to an authenticated user."""
 
     def create(self, validated_data):
-        """
-        Create a GitHub account association for the authenticated user.
-        """
+        """Create a GitHub account association for the authenticated user."""
 
-        provider_user_id = self._get_user_data(self.access_token).get("id")
+        access_token = self._access_token
+        self._access_token = None
+
+        provider_user_id = self._get_user_data(access_token).get("id")
 
         if not provider_user_id:
-            raise serializers.ValidationError("GitHub user ID not found.")
+            raise serializers.ValidationError(
+                "GitHub did not return a valid account identifier."
+            )
 
         provider_user_id = str(provider_user_id)
 
@@ -290,7 +363,9 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
             user = self.context["request"].user
 
             if is_user_deleted(user):
-                raise serializers.ValidationError("Account has been deleted.")
+                raise serializers.ValidationError(
+                    "This account is no longer available."
+                )
 
             try:
                 SocialAccountLinked.objects.create(
@@ -300,15 +375,13 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
             except IntegrityError:
                 raise serializers.ValidationError(
-                    "Your GitHub account is already linked to another user."
+                    "This GitHub account is already linked to another user."
                 )
 
             return user
 
 
 class UnlinkGithubAuthSerializer(BaseUnlinkAuthSerializer):
-    """
-    Remove the GitHub account association from the authenticated user.
-    """
+    """Remove the GitHub account association from the authenticated user."""
 
     PROVIDER = SocialAccountProvider.GITHUB
