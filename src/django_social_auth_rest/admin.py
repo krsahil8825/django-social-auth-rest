@@ -1,3 +1,10 @@
+"""
+django_social_auth_rest.admin
+=============================
+
+Admin interface for django_social_auth_rest.
+"""
+
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
@@ -9,9 +16,7 @@ User = get_user_model()
 
 
 def user_admin_supports_autocomplete():
-    """
-    Return True if the registered User admin supports autocomplete.
-    """
+    """Return True if the registered User admin supports autocomplete."""
 
     try:
         user_admin = admin.site.get_model_admin(User)
@@ -22,6 +27,8 @@ def user_admin_supports_autocomplete():
 
 
 class ProviderFilter(admin.SimpleListFilter):
+    """Custom filter for the provider field in the admin list view."""
+
     title = "Provider"
     parameter_name = "provider"
 
@@ -44,6 +51,8 @@ class ProviderFilter(admin.SimpleListFilter):
 
 @admin.register(SocialAccountLinked)
 class SocialAccountLinkedAdmin(admin.ModelAdmin):
+    """Admin interface for managing linked social accounts."""
+
     list_display = (
         "id",
         "user_name",
