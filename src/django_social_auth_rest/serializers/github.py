@@ -75,7 +75,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
         except web_requests.Timeout:
             raise serializers.ValidationError(
-                "GitHub took too long to respond. Please try again."
+                {"message": "GitHub took too long to respond. Please try again."}
             )
 
         except web_requests.HTTPError as exc:
@@ -84,7 +84,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to contact GitHub. Please try again later."
+                {"message": "Unable to contact GitHub. Please try again later."}
             )
 
         except web_requests.RequestException as exc:
@@ -93,7 +93,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to contact GitHub. Please try again later."
+                {"message": "Unable to contact GitHub. Please try again later."}
             )
 
         data = response.json()
@@ -105,7 +105,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 data.get("error_description"),
             )
             raise serializers.ValidationError(
-                "GitHub authentication could not be completed."
+                {"message": "GitHub authentication could not be completed."}
             )
 
         access_token = data.get("access_token")
@@ -115,7 +115,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 "GitHub token exchange response did not contain an access token."
             )
             raise serializers.ValidationError(
-                "GitHub authentication could not be completed."
+                {"message": "GitHub authentication could not be completed."}
             )
 
         return access_token
@@ -137,7 +137,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
         except web_requests.Timeout:
             raise serializers.ValidationError(
-                "GitHub took too long to respond. Please try again."
+                {"message": "GitHub took too long to respond. Please try again."}
             )
 
         except web_requests.HTTPError as exc:
@@ -146,7 +146,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to retrieve your GitHub profile information."
+                {"message": "Unable to retrieve your GitHub profile information."}
             )
 
         except web_requests.RequestException as exc:
@@ -155,7 +155,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to retrieve your GitHub profile information."
+                {"message": "Unable to retrieve your GitHub profile information."}
             )
 
         return response.json()
@@ -177,7 +177,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
         except web_requests.Timeout:
             raise serializers.ValidationError(
-                "GitHub took too long to respond. Please try again."
+                {"message": "GitHub took too long to respond. Please try again."}
             )
 
         except web_requests.HTTPError as exc:
@@ -186,7 +186,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to retrieve your verified GitHub email address."
+                {"message": "Unable to retrieve your verified GitHub email address."}
             )
 
         except web_requests.RequestException as exc:
@@ -195,7 +195,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                "Unable to retrieve your verified GitHub email address."
+                {"message": "Unable to retrieve your verified GitHub email address."}
             )
 
         emails = response.json()
@@ -211,7 +211,9 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
 
         if not primary_email:
             raise serializers.ValidationError(
-                "Your GitHub account does not have a primary verified email address."
+                {
+                    "message": "Your GitHub account does not have a primary verified email address."
+                }
             )
 
         return primary_email.lower().strip()
@@ -229,7 +231,7 @@ class BaseGithubAuthSerializer(BaseSocialAuthSerializer):
             )
         except (BadSignature, SignatureExpired) as exc:
             raise serializers.ValidationError(
-                "Invalid or expired authentication state."
+                {"message": "Invalid or expired authentication state."}
             ) from exc
 
         self._access_token = self._get_access_token(attrs.get("code"))
@@ -258,7 +260,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
 
         if not provider_user_id:
             raise serializers.ValidationError(
-                "GitHub did not return a valid account identifier."
+                {"message": "GitHub did not return a valid account identifier."}
             )
 
         provider_user_id = str(provider_user_id)
@@ -278,7 +280,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
 
                 if is_user_deleted(user):
                     raise serializers.ValidationError(
-                        "This account is no longer available."
+                        {"message": "This account is no longer available."}
                     )
 
                 return user
@@ -310,7 +312,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
 
             if is_user_deleted(user):
                 raise serializers.ValidationError(
-                    "This account is no longer available."
+                    {"message": "This account is no longer available."}
                 )
 
             try:
@@ -321,7 +323,9 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
             except IntegrityError:
                 raise serializers.ValidationError(
-                    "This GitHub account is already linked to another user."
+                    {
+                        "message": "This GitHub account is already linked to another user."
+                    }
                 )
 
             return user
@@ -340,7 +344,7 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
 
         if not provider_user_id:
             raise serializers.ValidationError(
-                "GitHub did not return a valid account identifier."
+                {"message": "GitHub did not return a valid account identifier."}
             )
 
         provider_user_id = str(provider_user_id)
@@ -357,14 +361,16 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
 
             if social_link:
                 raise serializers.ValidationError(
-                    "This GitHub account is already linked to another user."
+                    {
+                        "message": "This GitHub account is already linked to another user."
+                    }
                 )
 
             user = self.context["request"].user
 
             if is_user_deleted(user):
                 raise serializers.ValidationError(
-                    "This account is no longer available."
+                    {"message": "This account is no longer available."}
                 )
 
             try:
@@ -375,7 +381,9 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
                 )
             except IntegrityError:
                 raise serializers.ValidationError(
-                    "This GitHub account is already linked to another user."
+                    {
+                        "message": "This GitHub account is already linked to another user."
+                    }
                 )
 
             return user

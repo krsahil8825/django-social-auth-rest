@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/social-auth/", include("django_social_auth_rest.urls.github")),
     path("api/social-auth/", include("django_social_auth_rest.urls.google")),
     path("api/djoser/", include("djoser.urls")),
+    path("api/djoser/", include("djoser.urls.jwt")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/docs/",
