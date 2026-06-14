@@ -320,6 +320,7 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                     user=user,
                     provider=SocialAccountProvider.GITHUB,
                     provider_user_id=provider_user_id,
+                    email_linked=email,
                 )
             except IntegrityError:
                 raise serializers.ValidationError(
@@ -340,7 +341,9 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
         access_token = self._access_token
         self._access_token = None
 
-        provider_user_id = self._get_user_data(access_token).get("id")
+        github_user = self._get_user_data(access_token)
+
+        provider_user_id = github_user.get("id")
 
         if not provider_user_id:
             raise serializers.ValidationError(
@@ -348,6 +351,8 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
             )
 
         provider_user_id = str(provider_user_id)
+
+        email = self._get_primary_verified_email(access_token)
 
         with transaction.atomic():
             social_link = (
@@ -378,6 +383,7 @@ class LinkGithubAuthSerializer(BaseGithubAuthSerializer):
                     user=user,
                     provider=SocialAccountProvider.GITHUB,
                     provider_user_id=provider_user_id,
+                    email_linked=email,
                 )
             except IntegrityError:
                 raise serializers.ValidationError(

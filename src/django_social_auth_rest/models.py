@@ -32,6 +32,7 @@ class SocialAccountLinked(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     provider = models.CharField(max_length=20, choices=SocialAccountProvider.choices)
     provider_user_id = models.CharField(max_length=255, db_index=True)
+    email_linked = models.EmailField(db_index=True)
     linked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -44,7 +45,21 @@ class SocialAccountLinked(models.Model):
                 fields=["user", "provider"],
                 name="unique_user_provider",
             ),
+            models.UniqueConstraint(
+                fields=["provider", "email_linked"], name="unique_provider_email"
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        """
+        Override save to ensure that the email_linked field is always
+        stored in lowercase for consistency.
+        """
+
+        if self.email_linked:
+            self.email_linked = self.email_linked.lower()
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         """

@@ -174,6 +174,7 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                     user=user,
                     provider=SocialAccountProvider.GOOGLE,
                     provider_user_id=provider_user_id,
+                    email_linked=email,
                 )
 
                 logger.info(
@@ -248,6 +249,7 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
                     user=user,
                     provider=SocialAccountProvider.GOOGLE,
                     provider_user_id=provider_user_id,
+                    email_linked=user_info["email"],
                 )
 
                 logger.info(

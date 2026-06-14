@@ -57,6 +57,7 @@ class SocialAccountLinkedAdmin(admin.ModelAdmin):
         "id",
         "user_name",
         "user_email",
+        "email_linked",
         "provider",
         "linked_at",
     )
@@ -70,6 +71,7 @@ class SocialAccountLinkedAdmin(admin.ModelAdmin):
         "user__username",
         "user__email",
         "provider_user_id",
+        "email_linked",
     )
 
     ordering = ("-linked_at",)
@@ -81,6 +83,7 @@ class SocialAccountLinkedAdmin(admin.ModelAdmin):
     readonly_fields = (
         "provider_user_id",
         "linked_at",
+        "email_linked",
     )
 
     if user_admin_supports_autocomplete():
