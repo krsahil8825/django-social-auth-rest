@@ -56,7 +56,7 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
                 exc,
             )
             raise serializers.ValidationError(
-                {"message": "Google authentication could not be completed."}
+                {"message": ["Google authentication could not be completed."]}
             )
 
         email = user_info.get("email")
@@ -64,7 +64,7 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
         if not email:
             logger.warning("Google ID token did not contain an email address.")
             raise serializers.ValidationError(
-                {"message": "Unable to retrieve your Google email address."}
+                {"message": ["Unable to retrieve your Google email address."]}
             )
 
         if not user_info.get("email_verified"):
@@ -73,7 +73,7 @@ class BaseGoogleAuthSerializer(BaseSocialAuthSerializer):
                 user_info.get("sub"),
             )
             raise serializers.ValidationError(
-                {"message": "Your Google account email address is not verified."}
+                {"message": ["Your Google account email address is not verified."]}
             )
 
         self._user_info = user_info
@@ -120,7 +120,7 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                         user.pk,
                     )
                     raise serializers.ValidationError(
-                        {"message": "This account is no longer available."}
+                        {"message": ["This account is no longer available."]}
                     )
 
                 # Update the linked email if the policy allows and the email has changed
@@ -182,7 +182,7 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                     user.pk,
                 )
                 raise serializers.ValidationError(
-                    {"message": "This account is no longer available."}
+                    {"message": ["This account is no longer available."]}
                 )
 
             try:
@@ -206,7 +206,9 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                 )
                 raise serializers.ValidationError(
                     {
-                        "message": "This Google account is already linked to another user."
+                        "message": [
+                            "This Google account is already linked to another user."
+                        ]
                     }
                 )
 
@@ -245,7 +247,9 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
                 )
                 raise serializers.ValidationError(
                     {
-                        "message": "This Google account is already linked to another user."
+                        "message": [
+                            "This Google account is already linked to another user."
+                        ]
                     }
                 )
 
@@ -257,7 +261,7 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
                     user.pk,
                 )
                 raise serializers.ValidationError(
-                    {"message": "This account is no longer available."}
+                    {"message": ["This account is no longer available."]}
                 )
 
             try:
@@ -283,7 +287,9 @@ class LinkGoogleAuthSerializer(BaseGoogleAuthSerializer):
                 )
                 raise serializers.ValidationError(
                     {
-                        "message": "This Google account is already linked to another user."
+                        "message": [
+                            "This Google account is already linked to another user."
+                        ]
                     }
                 )
 
