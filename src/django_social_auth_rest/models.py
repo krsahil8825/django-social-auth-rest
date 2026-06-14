@@ -55,9 +55,10 @@ class SocialAccountLinked(models.Model):
         Override save to ensure that the email_linked field is always
         stored in lowercase for consistency.
         """
+        super().full_clean()
 
         if self.email_linked:
-            self.email_linked = self.email_linked.lower()
+            self.email_linked = self.email_linked.strip().lower()
 
         super().save(*args, **kwargs)
 

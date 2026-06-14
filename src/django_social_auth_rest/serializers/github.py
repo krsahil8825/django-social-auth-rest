@@ -265,6 +265,8 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
 
         provider_user_id = str(provider_user_id)
 
+        email = self._get_primary_verified_email(access_token)
+
         with transaction.atomic():
             social_link = (
                 SocialAccountLinked.objects.select_related("user")
@@ -283,9 +285,21 @@ class LoginGithubAuthSerializer(BaseGithubAuthSerializer):
                         {"message": "This account is no longer available."}
                     )
 
-                return user
+                if (
+                    conf.LINKED_ACCOUNT_EMAIL_UPDATE_POLICY
+                    and social_link.email_linked != email
+                ):
+                    logger.info(
+                        "Updating linked GitHub email. "
+                        "user_id=%s old_email=%s new_email=%s",
+                        user.pk,
+                        social_link.email_linked,
+                        email,
+                    )
+                    social_link.email_linked = email
+                    social_link.save(update_fields=["email_linked"])
 
-            email = self._get_primary_verified_email(access_token)
+                return user
 
             full_name = (github_user.get("name") or "").strip()
             name_parts = full_name.split(maxsplit=1)

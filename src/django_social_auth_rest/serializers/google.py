@@ -123,6 +123,22 @@ class LoginGoogleAuthSerializer(BaseGoogleAuthSerializer):
                         {"message": "This account is no longer available."}
                     )
 
+                # Update the linked email if the policy allows and the email has changed
+                if (
+                    conf.LINKED_ACCOUNT_EMAIL_UPDATE_POLICY
+                    and social_link.email_linked != email
+                ):
+                    logger.info(
+                        "Updating linked Google email. "
+                        "user_id=%s old_email=%s new_email=%s",
+                        user.pk,
+                        social_link.email_linked,
+                        email,
+                    )
+
+                    social_link.email_linked = email
+                    social_link.save(update_fields=["email_linked"])
+
                 return user
 
             # Create new user and link social account

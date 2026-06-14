@@ -76,6 +76,13 @@ Example:
 # OAuth provider settings
 # ===========================================================
 
+LINKED_ACCOUNT_EMAIL_UPDATE_POLICY = getattr(
+    django_settings,
+    "LINKED_ACCOUNT_EMAIL_UPDATE_POLICY",
+    True,
+)
+
+
 GITHUB_CLIENT_ID = getattr(
     django_settings,
     "GITHUB_CLIENT_ID",
