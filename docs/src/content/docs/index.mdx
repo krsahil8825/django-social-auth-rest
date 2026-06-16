@@ -1,40 +1,179 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: django-social-auth-rest
+description: Plug-and-play social login for Django REST Framework - Google & GitHub OAuth, account linking, and JWT tokens, wired up in an afternoon.
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
+  tagline: Plug-and-play social login for Django REST Framework. Google & GitHub OAuth, account linking, and JWT tokens - wired up in an afternoon, not a sprint.
   image:
-    file: ../../assets/houston.webp
+    file: ../../assets/django-social-auth-rest.png
   actions:
-    - text: Example Guide
-      link: /guides/example/
-      icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+    - text: Get Started
+      link: /guides/getting-started/
+      icon: rocket
+    - text: View on GitHub
+      link: https://github.com/krsahil8825/django-social-auth-rest
+      icon: github
+    - text: View on PyPI
+      link: https://pypi.org/project/django-social-auth-rest/
       icon: external
-      variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard, Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-## Next steps
+<div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem', width: '100%', justifyContent: 'center' }}>
+  <span><img src="https://img.shields.io/badge/pypi-v2.0.2-blue.svg?style=flat-square" /></span>
+  <span><img src="https://img.shields.io/badge/python-3.12+-blue.svg?style=flat-square" /></span>
+  <span><img src="https://img.shields.io/badge/django-5.0+-green.svg?style=flat-square" /></span>
+  <span><img src="https://img.shields.io/badge/DRF-3.15+-red.svg?style=flat-square" /></span>
+  <span><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" /></span>
+</div>
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+## Stop reinventing OAuth
+
+Every Django project ends up needing the same thing eventually: let users sign in with Google or GitHub, hand back a token, and don't break anything when they later connect a second provider. Getting that right means writing CSRF-safe state handling, normalizing two very different OAuth flows, issuing JWTs, and untangling account-linking edge cases - by hand, every time.
+
+`django-social-auth-rest` does all of that for you. Add it to `INSTALLED_APPS`, drop in your provider credentials, and you've got production-ready social login speaking the same JWT language as the rest of your API.
+
+<CardGrid>
+	<Card title="Provider-abstracted login" icon="random">
+		One consistent JWT response shape for every provider. Sign in with Google or GitHub through the same pattern - swap providers without rewriting your client.
 	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
+	<Card title="Account linking, done right" icon="puzzle">
+		Users can connect or disconnect social accounts from an existing profile at any time, with unique constraints that keep one social identity tied to one user.
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="JWT-first, not bolted on" icon="padlock">
+		Built directly on `djangorestframework-simplejwt`. Access and refresh tokens come back from every login, link, and signup call - no extra wiring.
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
+	<Card title="CSRF-safe by design" icon="approve-check-circle">
+		The GitHub flow uses signed, time-boxed OAuth state tokens out of the box, so you're not rolling your own CSRF protection for a third-party redirect.
 	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="Abuse-resistant" icon="setting">
+		Every auth endpoint ships with configurable rate limiting (`SOCIAL_AUTH_THROTTLE_RATE`), so a single misbehaving client can't hammer your login endpoint.
+	</Card>
+	<Card title="Hooks into your app's logic" icon="comment-alt">
+		Django signals fire on every key event - `new_user_registered`, `login_successful`, `link_account_successful`, `unlink_account_successful` - so welcome emails and analytics are a `@receiver` away.
 	</Card>
 </CardGrid>
+
+## Plug-and-play setup
+
+<Steps>
+
+1. **Install it.**
+
+   ```bash
+   pip install django-social-auth-rest
+   ```
+
+2. **Register the app and JWT auth.**
+
+   ```python
+   # settings.py
+   INSTALLED_APPS = [
+       # ...
+       "rest_framework",
+       "django_social_auth_rest",
+   ]
+
+   REST_FRAMEWORK = {
+       "DEFAULT_AUTHENTICATION_CLASSES": (
+           "rest_framework_simplejwt.authentication.JWTAuthentication",
+       ),
+   }
+   ```
+
+3. **Configure the Signup Serializer for remove duplicates**
+
+   ```python
+   class SignupSerializer(serializers.Serializer):
+     ...
+     def validate(self, attrs):
+       attrs = super().validate(attrs)
+       email = attrs.get("email", "").strip().lower()
+       if SocialAccountLinked.objects.filter(email_linked=email).exists():
+         raise serializers.ValidationError( {"email": ["An account already exists for this email."]} )
+       return attrs
+   ```
+
+   It is important to validate the email in the signup serializer to avoid duplicate accounts being created for the same email address. This ensures that if a user tries to sign up with an email that is already linked to a social account, they will receive a validation error.
+
+4. **Drop in credentials for the providers you want.**
+
+   ```python
+   # settings.py
+   GITHUB_CLIENT_ID = "your-github-client-id"
+   GITHUB_CLIENT_SECRET = "your-github-client-secret"
+   GOOGLE_CLIENT_ID = "your-google-client-id"
+   ```
+
+   Providers without credentials stay disabled automatically - no dead endpoints to guard against.
+
+5. **Wire up the URLs and migrate.**
+
+   ```python
+   # urls.py
+   urlpatterns = [
+       path("api/social-auth/", include("django_social_auth_rest.urls")),
+       path("api/social-auth/", include("django_social_auth_rest.urls.github")),
+       path("api/social-auth/", include("django_social_auth_rest.urls.google")),
+   ]
+   ```
+
+6. **Run migrations.**
+
+   ```bash
+   python manage.py migrate
+   ```
+
+</Steps>
+
+<Aside type="tip" title="That's the whole setup">
+No middleware to register, no custom backends to subclass. The full provider-by-provider reference - including callback URLs and credential setup - lives in the [Getting Started guide](/guides/getting-started/).
+</Aside>
+
+## It talks like any other REST endpoint
+
+<Tabs>
+  <TabItem label="GitHub">
+
+    ```http
+    POST /api/social-auth/github/login/
+    Content-Type: application/json
+
+    {
+      "code": "<AUTHORIZATION_CODE>",
+      "state": "<SIGNED_STATE_TOKEN>"
+    }
+    ```
+
+    ```json
+    {
+      "access": "<JWT_ACCESS_TOKEN>",
+      "refresh": "<JWT_REFRESH_TOKEN>"
+    }
+    ```
+
+  </TabItem>
+  <TabItem label="Google">
+
+    ```http
+    POST /api/social-auth/google/login/
+    Content-Type: application/json
+
+    {
+      "token": "<GOOGLE_ID_TOKEN>"
+    }
+    ```
+
+    ```json
+    {
+      "access": "<JWT_ACCESS_TOKEN>",
+      "refresh": "<JWT_REFRESH_TOKEN>"
+    }
+    ```
+
+  </TabItem>
+</Tabs>
+
+Linking, unlinking, and checking which providers a user has connected follow the exact same shape - every endpoint returns JWTs or a clean `204 No Content`.
+
