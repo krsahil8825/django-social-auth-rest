@@ -1,0 +1,49 @@
+---
+title: Linked Accounts
+description: Check which social providers the current user has connected.
+slug: guides/linked-accounts
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This endpoint comes from the base `django_social_auth_rest.urls` module - the one you always include, regardless of which providers you've enabled:
+
+```python
+# urls.py
+path("api/social-auth/", include("django_social_auth_rest.urls")),
+```
+
+It's the one place to ask "which providers does this user have connected?" - useful for building an account settings page with a link/unlink button next to each provider.
+
+## Endpoint
+
+```http
+GET /api/social-auth/linked-accounts/
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+```
+
+Requires authentication.
+
+Response:
+
+```json
+{
+  "providers": [
+    {
+      "label": "Google",
+      "is_linked": true
+    },
+    {
+      "label": "GitHub",
+      "is_linked": false
+    }
+    // ... other providers
+  ]
+}
+```
+
+<Aside type="note" title="Only enabled providers show up">
+  This list only includes providers that have credentials configured - not every provider the package supports. If you haven't set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`, GitHub won't appear in the response at all, rather than showing up with `is_linked: false`.
+</Aside>
