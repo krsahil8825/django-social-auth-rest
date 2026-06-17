@@ -1,0 +1,266 @@
+---
+title: GitHub
+description: Authorize through GitHub's OAuth flow with a signed, time-boxed state token, then exchange the result for JWTs.
+slug: guides/providers/github
+---
+
+import { Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+GitHub uses the standard OAuth 2.0 authorization-code flow: your frontend redirects the user to GitHub, GitHub redirects back with a temporary code, and your backend exchanges that code for the user's profile. Because a redirect is involved, this package also issues a signed, time-boxed state token that your frontend has to carry through the whole flow to protect against CSRF.
+
+This page assumes you've already finished the shared setup in [Getting Started](/guides/getting-started/).
+
+## How it works
+
+1. Your frontend asks the backend for a state token: `GET /api/social-auth/github/state/`.
+2. Your frontend redirects the user to GitHub's authorize URL, including your `client_id` and that state token.
+3. The user approves the app on GitHub and is redirected back to your `redirect_uri` with a `code` and the same `state` value.
+4. Your frontend sends `code` and `state` to `POST /api/social-auth/github/login/`.
+5. The backend verifies the state token, exchanges the code for a GitHub access token, and returns JWT `access` and `refresh` tokens.
+
+## Get your credentials
+
+<Steps>
+
+1. Go to your GitHub account → **Settings → Developer settings → OAuth Apps**.
+2. Click **New OAuth App**.
+3. Fill in the application details, and set **Authorization callback URL** to wherever your frontend handles the redirect - for example `http://localhost:5173/auth/github/callback`.
+4. Copy the **Client ID**, and generate a **Client Secret**.
+
+</Steps>
+
+<Aside type="tip">
+  The callback URL you register here has to match the `redirect_uri` your frontend sends, byte for byte - scheme, port, and trailing slash included. A mismatch gets rejected by GitHub with a "redirect_uri is not associated with this application" error, before your backend ever sees the request.
+</Aside>
+
+## Add the settings
+
+```python
+# settings.py
+GITHUB_CLIENT_ID = "your-github-client-id"
+GITHUB_CLIENT_SECRET = "your-github-client-secret"
+```
+
+Both values are required - GitHub stays disabled until both are set.
+
+## Wire up the URLs
+
+```python
+# urls.py
+from django.urls import path, include
+
+urlpatterns = [
+    path("api/social-auth/", include("django_social_auth_rest.urls.github")),
+]
+```
+
+## Frontend integration
+
+This works the same regardless of framework: request a state token, redirect to GitHub, and forward the resulting code and state to your backend.
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub OAuth Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+      <h1 class="text-xl font-semibold text-center">GitHub OAuth Test</h1>
+
+      <button
+        id="github-button"
+        class="w-full rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+      >
+        Continue with GitHub
+      </button>
+
+      <pre id="status" class="text-xs text-zinc-400 whitespace-pre-wrap break-all"></pre>
+    </div>
+  </div>
+
+  <script>
+    const GITHUB_CLIENT_ID = "YOUR_GITHUB_CLIENT_ID";
+    // Must exactly match this page's own URL, and the callback URL
+    // registered on the GitHub OAuth App.
+    const GITHUB_REDIRECT_URI = window.location.origin + window.location.pathname;
+    const BACKEND_BASE_URL = "http://localhost:8000";
+
+    const statusEl = document.getElementById("status");
+
+    function logStatus(label, data) {
+      statusEl.textContent = `${label}\n${JSON.stringify(data, null, 2)}`;
+    }
+
+    async function startGithubLogin() {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/social-auth/github/state/`);
+
+        if (!response.ok) {
+          throw new Error("Could not fetch a GitHub state token.");
+        }
+
+        const { state } = await response.json();
+
+        const authorizeUrl =
+          "https://github.com/login/oauth/authorize" +
+          `?client_id=${GITHUB_CLIENT_ID}` +
+          `&redirect_uri=${encodeURIComponent(GITHUB_REDIRECT_URI)}` +
+          "&scope=user:email" +
+          `&state=${encodeURIComponent(state)}`;
+
+        window.location.href = authorizeUrl;
+      } catch (error) {
+        logStatus("Could not start GitHub sign-in", { message: error.message });
+      }
+    }
+
+    async function finishGithubLogin() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const state = params.get("state");
+
+      if (!code || !state) {
+        return; // not on the callback redirect - nothing to do
+      }
+
+      // Strip code/state from the URL either way, so a page refresh
+      // doesn't try to redeem the same code a second time.
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/social-auth/github/login/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, state }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          logStatus("GitHub sign-in failed", data);
+          return;
+        }
+
+        logStatus("Signed in", data);
+      } catch (error) {
+        logStatus("Network error", { message: error.message });
+      }
+    }
+
+    document.getElementById("github-button").addEventListener("click", startGithubLogin);
+    window.addEventListener("load", finishGithubLogin);
+  </script>
+</body>
+</html>
+```
+
+<Aside type="note">
+  Authorization codes can only be redeemed once. `finishGithubLogin` removes `code` and `state` from the URL right after attempting the exchange, so refreshing the callback page won't try to reuse a code GitHub has already invalidated.
+</Aside>
+
+<Aside type="note">
+  `onSignedIn` is up to you - store the tokens however the rest of your app already manages auth state (in memory, a cookie your own backend sets, and so on), same as the Google integration.
+</Aside>
+
+To link an already-signed-in user to a GitHub account instead of logging in, send `code` and `state` to `/api/social-auth/github/link/` with the user's existing access token in the `Authorization` header. The redirect and state handling are identical.
+
+## Endpoints
+
+### Get a state token
+
+```http
+GET /api/social-auth/github/state/
+```
+
+Response:
+
+```json
+{ "state": "<SIGNED_STATE_TOKEN>" }
+```
+
+No authentication required. State tokens expire after `SOCIAL_AUTH_STATE_MAX_AGE` seconds (5 minutes by default) - request a fresh one if the user takes a while to approve on GitHub's side.
+
+### Login
+
+```http
+POST /api/social-auth/github/login/
+Content-Type: application/json
+
+{
+  "code": "<AUTHORIZATION_CODE>",
+  "state": "<SIGNED_STATE_TOKEN>"
+}
+```
+
+Response:
+
+```json
+{ "access": "<JWT_ACCESS_TOKEN>", "refresh": "<JWT_REFRESH_TOKEN>" }
+```
+
+Logs the user in if a matching GitHub account is already linked, or creates a new user and link if this is the first time. No authentication required.
+
+### Link account
+
+_Requires authentication._
+
+```http
+POST /api/social-auth/github/link/
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+Content-Type: application/json
+
+{
+  "code": "<AUTHORIZATION_CODE>",
+  "state": "<SIGNED_STATE_TOKEN>"
+}
+```
+
+Returns `204 No Content` on success. Fails if that GitHub account is already linked to a different user.
+
+### Unlink account
+
+_Requires authentication._
+
+```http
+POST /api/social-auth/github/unlink/
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+Content-Type: application/json
+
+{
+  "password": "<USER_PASSWORD>"
+}
+```
+
+Returns `204 No Content` on success.
+
+<Aside type="caution" title="Password required">
+  Unlinking asks for the user's password to confirm the request isn't coming from someone who's hijacked an active session. A user who signed up entirely through GitHub - and never set a password - won't be able to unlink until they set one, for example through a password-reset flow.
+</Aside>
+
+## Common errors
+
+Every failure comes back as a `400`:
+
+| What happened                                 | Response body                                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| State token missing, invalid, or expired      | `{"message": ["Invalid or expired authentication state."]}`                                                                                      |
+| GitHub unreachable or the request times out   | `{"message": ["Unable to contact GitHub. Please try again later."]}` (wording varies slightly by failure type, but the shape is always the same) |
+| GitHub account has no verified primary email  | `{"message": ["Your GitHub account does not have a primary verified email address."]}`                                                           |
+| Account is soft-deleted                       | `{"message": ["This account is no longer available."]}`                                                                                          |
+| GitHub account already linked to another user | `{"message": ["This GitHub account is already linked to another user."]}`                                                                        |
+| Unlink: wrong password                        | `{"non_field_errors": ["Incorrect password."]}`                                                                                                  |
+| Unlink: no GitHub account linked              | `{"non_field_errors": ["No linked github account found."]}`                                                                                      |
+
+<Aside type="note" title="Why these don't nest under a field name">
+  GitHub's code and state checks all happen inside the serializer's object-level `validate()` method, so DRF reports them flat under `"message"` rather than nesting them under a field name. The unlink errors are the exception - those come from a plain-string `validate()` failure, which DRF reports under `"non_field_errors"` instead.
+</Aside>
+
+<Aside type="note" title="Why GitHub needs a state token and Google doesn't">
+  GitHub's flow redirects the user through GitHub and back to your callback URL - a step an attacker could try to forge. The signed, time-boxed state token protects that redirect against CSRF. Google's ID-token flow never redirects through your server at all, so there's nothing for a state token to protect.
+</Aside>
+

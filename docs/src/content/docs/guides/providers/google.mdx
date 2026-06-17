@@ -60,37 +60,73 @@ urlpatterns = [
 This works the same regardless of framework: load the Google Identity Services script once, render the button, and forward the resulting token to your backend.
 
 ```html
-<!-- load this once, anywhere on the page -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google OAuth Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+      <h1 class="text-xl font-semibold text-center">Google OAuth Test</h1>
 
-<div id="google-button"></div>
-```
+      <div id="google-button" class="flex justify-center"></div>
 
-```javascript
-function initGoogleSignIn() {
-  google.accounts.id.initialize({ client_id: "YOUR_GOOGLE_CLIENT_ID", callback: handleCredentialResponse });
+      <pre id="status" class="text-xs text-zinc-400 whitespace-pre-wrap break-all"></pre>
+    </div>
+  </div>
 
-  google.accounts.id.renderButton(document.getElementById("google-button"), { theme: "outline", size: "large" });
-}
+  <script>
+    const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
+    const BACKEND_BASE_URL = "http://localhost:8000";
 
-async function handleCredentialResponse({ credential }) {
-  const response = await fetch("/api/social-auth/google/login/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: credential }),
-  });
+    const statusEl = document.getElementById("status");
 
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("Google sign-in failed:", error);
-    return;
-  }
+    function logStatus(label, data) {
+      statusEl.textContent = `${label}\n${JSON.stringify(data, null, 2)}`;
+    }
 
-  const { access, refresh } = await response.json();
-  onSignedIn({ access, refresh });
-}
+    function initGoogleSignIn() {
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+      });
 
-window.addEventListener("load", initGoogleSignIn);
+      google.accounts.id.renderButton(document.getElementById("google-button"), {
+        theme: "outline",
+        size: "large",
+      });
+    }
+
+    async function handleCredentialResponse({ credential }) {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/social-auth/google/login/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: credential }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          logStatus("Google sign-in failed", data);
+          return;
+        }
+
+        logStatus("Signed in", data);
+      } catch (error) {
+        logStatus("Network error", { message: error.message });
+      }
+    }
+
+    window.addEventListener("load", initGoogleSignIn);
+  </script>
+</body>
+</html>
 ```
 
 <Aside type="note">
