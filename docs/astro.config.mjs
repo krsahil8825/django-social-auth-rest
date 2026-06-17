@@ -5,7 +5,8 @@ import starlightThemeGalaxy from "starlight-theme-galaxy";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://krsahil8825.github.io/django-social-auth-rest",
+  site: "https://krsahil8825.github.io",
+  base: "/django-social-auth-rest",
   integrations: [
     starlight({
       title: "Django Social Auth Rest",
