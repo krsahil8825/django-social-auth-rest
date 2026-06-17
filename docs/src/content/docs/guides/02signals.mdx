@@ -1,0 +1,135 @@
+---
+title: Signals Reference
+description: React to social authentication events - new signups, logins, account linking, and unlinking - using Django's signal dispatcher.
+sidebar:
+  order: 2
+slug: guides/signals
+---
+
+import { Tabs, TabItem, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+A signal is Django's way of announcing "this just happened" so other parts of your app can react to it. `django_social_auth_rest` sends four signals - one for new signups, one for every login, and one each for linking and unlinking a provider. Connect a receiver to any of them to run your own code, like sending a welcome email, without changing anything inside the package itself.
+
+```python
+from django.dispatch import receiver
+from django_social_auth_rest.signals import login_successful
+
+@receiver(login_successful)
+def on_login(sender, request, user, provider, **kwargs):
+    print(f"{user.email} signed in with {provider}")
+```
+
+<Aside type="note" title="Always accept **kwargs">
+  Every signal sends three things: `request`, `user`, and `provider`. Add `**kwargs` to your function even if you don't use it - it keeps your code working if a future version adds more.
+</Aside>
+
+## How signals are sent
+
+These signals use Django's `send_robust`, which is a safer version of the normal `send`. If your receiver function has a bug and raises an error, Django catches it and writes it to your logs instead of crashing the request. So a mistake in your own code won't break login or signup for your users - but it also means a broken receiver can fail silently unless you're checking your logs.
+
+## Available signals
+
+| Signal                      | Sent during | When it happens                                            |
+| --------------------------- | ----------- | ---------------------------------------------------------- |
+| `new_user_registered`       | Login       | The first time this user logs in (more on this below)      |
+| `login_successful`          | Login       | Every successful login, new or returning user              |
+| `link_account_successful`   | Link        | A provider is successfully connected to the user's account |
+| `unlink_account_successful` | Unlink      | A connected provider is removed from the user's account    |
+
+Every provider - Google, GitHub, and any added later - sends these same four signals from the same place in the code. The `provider` value is how you tell them apart in your receiver.
+
+<Tabs>
+  <TabItem label="new_user_registered">
+
+    ```python
+    from django.dispatch import receiver
+    from django_social_auth_rest.signals import new_user_registered
+
+    @receiver(new_user_registered)
+    def on_new_user(sender, request, user, provider, **kwargs):
+        # runs the first time this user logs in
+        send_welcome_email(user)
+    ```
+
+    This fires during login, when the user logging in doesn't have a `last_login` value yet. In plain terms: Django treats `last_login = None` as "this person has never logged in before."
+
+    <Aside type="caution" title="This can fire more than once">
+      `django_social_auth_rest` never sets `last_login` itself. So if nothing else in your project sets it either, `last_login` stays empty forever - and this signal fires **every time** that user logs in, not just the first time.
+
+      If you only want this to run once per user, set `last_login` yourself inside your receiver:
+
+      ```python
+      from django.utils import timezone
+
+      @receiver(new_user_registered)
+      def on_new_user(sender, request, user, provider, **kwargs):
+          user.last_login = timezone.now()
+          user.save(update_fields=["last_login"])
+          send_welcome_email(user)
+      ```
+
+      If your project already sets `last_login` somewhere else - for example, users also log in through Django's normal session login - you don't need to do this. It'll already be set after their first login.
+    </Aside>
+
+    This signal does **not** fire when linking an account. Connecting a new provider to an account you already have isn't the same as creating a new account.
+
+  </TabItem>
+
+  <TabItem label="login_successful">
+
+    ```python
+    from django.dispatch import receiver
+    from django_social_auth_rest.signals import login_successful
+
+    @receiver(login_successful)
+    def on_login(sender, request, user, provider, **kwargs):
+        track_event(user, "login", {"provider": provider})
+    ```
+
+    Fires every time someone logs in successfully, whether they're brand new or have logged in many times before. For a new signup, this fires right after `new_user_registered`, in the same request.
+
+    Use this for anything you want to track on every login - analytics, last-seen timestamps, and so on.
+
+  </TabItem>
+
+  <TabItem label="link_account_successful">
+
+    ```python
+    from django.dispatch import receiver
+    from django_social_auth_rest.signals import link_account_successful
+
+    @receiver(link_account_successful)
+    def on_link(sender, request, user, provider, **kwargs):
+        track_event(user, "social_account_linked", {"provider": provider})
+    ```
+
+    Fires after someone connects a new provider to their account. `user` here is always the person who was already logged in and chose to link the provider - not a new user.
+
+  </TabItem>
+
+  <TabItem label="unlink_account_successful">
+
+    ```python
+    from django.dispatch import receiver
+    from django_social_auth_rest.signals import unlink_account_successful
+
+    @receiver(unlink_account_successful)
+    def on_unlink(sender, request, user, provider, **kwargs):
+        track_event(user, "social_account_unlinked", {"provider": provider})
+    ```
+
+    Fires after someone disconnects a provider from their account. To unlink, the user has to confirm their password first - see the provider guides for the exact request shape.
+
+  </TabItem>
+</Tabs>
+
+## What happens, step by step
+
+When someone logs in for the very first time, this is the order things happen in, all within a single request:
+
+1. `django_social_auth_rest` creates a new user and links their social account.
+2. `new_user_registered` fires, because `last_login` is still empty.
+3. `login_successful` fires.
+4. You get back an access token and a refresh token.
+
+If the user has logged in before, only steps 3 and 4 happen - steps 1 and 2 are skipped, since they already have an account.
