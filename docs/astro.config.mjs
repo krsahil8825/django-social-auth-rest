@@ -11,11 +11,9 @@ export default defineConfig({
       plugins: [starlightThemeGalaxy()],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/krsahil8825/django-social-auth-rest" },
-        { icon: "seti:python", label: "PyPI", href: "https://pypi.org/project/django-social-auth-rest/" }
+        { icon: "seti:python", label: "PyPI", href: "https://pypi.org/project/django-social-auth-rest/" },
       ],
-      sidebar: [
-        { label: "Guides", items: [{ autogenerate: { directory: "guides" } }], collapsed: true }
-      ],
+      sidebar: [{ label: "Guides", items: [{ autogenerate: { directory: "guides" } }], collapsed: true }],
     }),
   ],
 });

@@ -1,0 +1,180 @@
+---
+title: Google
+description: Verify a Google ID token server-side and exchange it for JWTs - no redirect, no authorization code.
+slug: guides/providers/google
+---
+
+import { Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Google's flow is the simpler of the two providers supported today. Your frontend handles sign-in entirely through Google's own UI, gets back a signed ID token, and your backend verifies that token and trades it for your own JWTs. There's no redirect back to your server and no state parameter to manage.
+
+This page assumes you've already finished the shared setup in [Getting Started](/guides/getting-started/).
+
+## How it works
+
+1. The user clicks "Continue with Google" on your frontend.
+2. Google's script handles the sign-in prompt and verifies the user directly with Google - your code never sees a password.
+3. Google calls your callback with a signed ID token.
+4. Your frontend sends that token to `POST /api/social-auth/google/login/`.
+5. The backend verifies the token with Google, creates or looks up the user, and returns JWT `access` and `refresh` tokens.
+
+## Get your credentials
+
+<Steps>
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project, or select an existing one.
+3. Go to **APIs & Services → Credentials**.
+4. Click **Create Credentials → OAuth client ID**, and choose **Web application** as the type.
+5. Under **Authorized JavaScript origins**, add every origin your frontend runs on - `http://localhost:5173` for local dev, your production domain, and so on.
+6. Copy the **Client ID**. This flow doesn't use a client secret.
+
+</Steps>
+
+<Aside type="tip">
+  Google checks the request's origin against the **Authorized JavaScript origins** list before it'll show the sign-in prompt at all. If the button renders but clicking it does nothing, that's almost always the cause - add the exact origin you're testing from, including the port.
+</Aside>
+
+## Add the setting
+
+```python
+# settings.py
+GOOGLE_CLIENT_ID = "your-google-client-id"
+```
+
+This is the only credential Google needs. As covered in [Getting Started](/guides/getting-started/), the provider switches on automatically once this is set.
+
+## Wire up the URLs
+
+```python
+# urls.py
+from django.urls import path, include
+
+urlpatterns = [
+    path("api/social-auth/", include("django_social_auth_rest.urls.google")),
+]
+```
+
+## Frontend integration
+
+This works the same regardless of framework: load the Google Identity Services script once, render the button, and forward the resulting token to your backend.
+
+```html
+<!-- load this once, anywhere on the page -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<div id="google-button"></div>
+```
+
+```javascript
+function initGoogleSignIn() {
+  google.accounts.id.initialize({ client_id: "YOUR_GOOGLE_CLIENT_ID", callback: handleCredentialResponse });
+
+  google.accounts.id.renderButton(document.getElementById("google-button"), { theme: "outline", size: "large" });
+}
+
+async function handleCredentialResponse({ credential }) {
+  const response = await fetch("/api/social-auth/google/login/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: credential }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error("Google sign-in failed:", error);
+    return;
+  }
+
+  const { access, refresh } = await response.json();
+  onSignedIn({ access, refresh });
+}
+
+window.addEventListener("load", initGoogleSignIn);
+```
+
+<Aside type="note">
+  `onSignedIn` is up to you - store the tokens however the rest of your app already manages auth state (in memory, a cookie your own backend sets, and so on). The Google-specific part ends the moment you have `access` and `refresh`; everything after that is just your normal JWT handling.
+</Aside>
+
+To link an already-signed-in user to a Google account instead of logging in, render the same button on an account settings page and point the `fetch` call at `/api/social-auth/google/link/`, with the user's existing access token in the `Authorization` header. The request body is identical.
+
+## Endpoints
+
+### Login
+
+```http
+POST /api/social-auth/google/login/
+Content-Type: application/json
+
+{
+  "token": "<GOOGLE_ID_TOKEN>"
+}
+```
+
+Response:
+
+```json
+{ "access": "<JWT_ACCESS_TOKEN>", "refresh": "<JWT_REFRESH_TOKEN>" }
+```
+
+Logs the user in if a matching Google account is already linked, or creates a new user and link if this is the first time. No authentication required.
+
+### Link account
+
+_Requires authentication._
+
+```http
+POST /api/social-auth/google/link/
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+Content-Type: application/json
+
+{
+  "token": "<GOOGLE_ID_TOKEN>"
+}
+```
+
+Returns `204 No Content` on success. Fails if that Google account is already linked to a different user.
+
+### Unlink account
+
+_Requires authentication._
+
+```http
+POST /api/social-auth/google/unlink/
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+Content-Type: application/json
+
+{
+  "password": "<USER_PASSWORD>"
+}
+```
+
+Returns `204 No Content` on success.
+
+<Aside type="caution" title="Password required">
+  Unlinking asks for the user's password to confirm the request isn't coming from someone who's hijacked an active session. A user who signed up entirely through Google - and never set a password - won't be able to unlink until they set one, for example through a password-reset flow.
+</Aside>
+
+## Common errors
+
+Every failure comes back as a `400`. Where the message appears in the response body depends on what failed:
+
+| What happened                                 | Response body                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| Invalid or expired Google token               | `{"message": ["Google authentication could not be completed."]}`          |
+| Google account email is not verified          | `{"message": ["Your Google account email address is not verified."]}`     |
+| Account is soft-deleted                       | `{"message": ["This account is no longer available."]}`                   |
+| Google account already linked to another user | `{"message": ["This Google account is already linked to another user."]}` |
+| Unlink: wrong password                        | `{"non_field_errors": ["Incorrect password."]}`                           |
+| Unlink: no linked Google account found        | `{"non_field_errors": ["No linked google account found."]}`               |
+
+<Aside type="note" title="Why Google doesn't use a state token">
+  This integration uses Google's Identity Services ID token flow rather than the traditional OAuth authorization-code flow.
+
+Because users are not redirected through an OAuth callback endpoint, there is no need for an application-managed `state` token. Instead, Google returns a signed ID token that is verified by the backend before authentication is completed.
+
+Some other providers use a redirect-based OAuth flow and therefore require a `state` parameter to protect against CSRF attacks.
+
+</Aside>
+
