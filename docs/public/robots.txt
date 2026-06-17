@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://krsahil8825.github.io/django-social-auth-rest/sitemap-index.xml
