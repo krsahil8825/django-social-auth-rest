@@ -6,6 +6,7 @@ sidebar:
 slug: guides/getting-started
 ---
 
+import { base } from "astro:config/client";
 import { Card, CardGrid, LinkCard, Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
 This guide covers everything that's shared across providers: installing the package, wiring it into your Django project, and turning on JWT auth. Each OAuth provider then gets its own short guide for credentials, settings, and endpoints - so once you've finished this page, jump to the provider you actually want.
@@ -151,7 +152,7 @@ urlpatterns = [
 ]
 ```
 
-The base module (`django_social_auth_rest.urls`) is always required - it exposes [`linked-accounts/`](#whats-next), which works regardless of which providers you've enabled. The provider-specific modules are only needed for providers you've actually configured.
+The base module (`django_social_auth_rest.urls`) is always required - it exposes <a href={`${base}/guides/linked-accounts/`}>`linked-accounts`</a>, which works regardless of which providers you've enabled. The provider-specific modules are only needed for providers you've actually configured.
 
 ### Avoiding duplicate accounts on signup
 
@@ -292,16 +293,16 @@ See the Signals Reference for usage examples and available signal payloads.
 	<LinkCard
 		title="GitHub provider guide"
 		description="Credentials, the state-token flow, and all four endpoints."
-		href="/guides/providers/github/"
+		href={`${base}/guides/providers/github/`}
 	/>
 	<LinkCard
 		title="Google provider guide"
 		description="Credentials and the ID-token login, link, and unlink endpoints."
-		href="/guides/providers/google/"
+		href={`${base}/guides/providers/google/`}
 	/>
 	<LinkCard
 		title="Signals reference"
 		description="Hook into user registration, login, account linking, and unlinking events."
-		href="/guides/signals/"
+		href={`${base}/guides/signals/`}
 	/>
 </CardGrid>

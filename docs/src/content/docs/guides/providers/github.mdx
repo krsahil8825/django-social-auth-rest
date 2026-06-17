@@ -4,11 +4,12 @@ description: Authorize through GitHub's OAuth flow with a signed, time-boxed sta
 slug: guides/providers/github
 ---
 
+import { base } from "astro:config/client";
 import { Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 GitHub uses the standard OAuth 2.0 authorization-code flow: your frontend redirects the user to GitHub, GitHub redirects back with a temporary code, and your backend exchanges that code for the user's profile. Because a redirect is involved, this package also issues a signed, time-boxed state token that your frontend has to carry through the whole flow to protect against CSRF.
 
-This page assumes you've already finished the shared setup in [Getting Started](/guides/getting-started/).
+This page assumes you've already finished the shared setup in <a href={`${base}/guides/getting-started/`}>Getting Started</a>.
 
 ## How it works
 

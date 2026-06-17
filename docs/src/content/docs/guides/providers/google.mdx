@@ -4,11 +4,12 @@ description: Verify a Google ID token server-side and exchange it for JWTs - no 
 slug: guides/providers/google
 ---
 
+import { base } from "astro:config/client";
 import { Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 Google's flow is the simpler of the two providers supported today. Your frontend handles sign-in entirely through Google's own UI, gets back a signed ID token, and your backend verifies that token and trades it for your own JWTs. There's no redirect back to your server and no state parameter to manage.
 
-This page assumes you've already finished the shared setup in [Getting Started](/guides/getting-started/).
+This page assumes you've already finished the shared setup in <a href={`${base}/guides/getting-started/`}>Getting Started</a>.
 
 ## How it works
 
@@ -42,7 +43,7 @@ This page assumes you've already finished the shared setup in [Getting Started](
 GOOGLE_CLIENT_ID = "your-google-client-id"
 ```
 
-This is the only credential Google needs. As covered in [Getting Started](/guides/getting-started/), the provider switches on automatically once this is set.
+This is the only credential Google needs. As covered in <a href={`${base}/guides/getting-started/`}>Getting Started</a>, the provider switches on automatically once this is set.
 
 ## Wire up the URLs
 
