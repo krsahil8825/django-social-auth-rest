@@ -1,5 +1,5 @@
 ---
-title: django-social-auth-rest
+title: Welcome to django-social-auth-rest
 description: Plug-and-play social login for Django REST Framework - Google & GitHub OAuth, account linking, and JWT tokens, wired up in an afternoon.
 template: splash
 hero:
@@ -80,6 +80,14 @@ Every Django project ends up needing the same thing eventually: let users sign i
            "rest_framework_simplejwt.authentication.JWTAuthentication",
        ),
    }
+
+   SIMPLE_JWT = {
+       "AUTH_HEADER_TYPES": ("Bearer",),
+       "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+       "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+       "ROTATE_REFRESH_TOKENS": True,
+       "BLACKLIST_AFTER_ROTATION": True,
+   }
    ```
 
 3. **Configure the Signup Serializer for remove duplicates**
@@ -97,18 +105,26 @@ Every Django project ends up needing the same thing eventually: let users sign i
 
    It is important to validate the email in the signup serializer to avoid duplicate accounts being created for the same email address. This ensures that if a user tries to sign up with an email that is already linked to a social account, they will receive a validation error.
 
-4. **Drop in credentials for the providers you want.**
+4. **Set a real state-signing salt.**
+
+   ```python
+   # settings.py
+   SOCIAL_AUTH_STATE_SALT = "a-long-random-secret-value"
+   ```
+
+5. **Drop in credentials for the providers you want.**
 
    ```python
    # settings.py
    GITHUB_CLIENT_ID = "your-github-client-id"
    GITHUB_CLIENT_SECRET = "your-github-client-secret"
    GOOGLE_CLIENT_ID = "your-google-client-id"
+   # ... add other providers as needed
    ```
 
    Providers without credentials stay disabled automatically - no dead endpoints to guard against.
 
-5. **Wire up the URLs and migrate.**
+6. **Wire up the URLs and migrate.**
 
    ```python
    # urls.py
@@ -116,10 +132,11 @@ Every Django project ends up needing the same thing eventually: let users sign i
        path("api/social-auth/", include("django_social_auth_rest.urls")),
        path("api/social-auth/", include("django_social_auth_rest.urls.github")),
        path("api/social-auth/", include("django_social_auth_rest.urls.google")),
+      #  ... add other providers as needed
    ]
    ```
 
-6. **Run migrations.**
+7. **Run migrations.**
 
    ```bash
    python manage.py migrate

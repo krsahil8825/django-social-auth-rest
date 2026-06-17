@@ -1,0 +1,307 @@
+---
+title: Getting Started
+description: Install and wire up django-social-auth-rest in a Django REST Framework project - the shared setup every provider builds on.
+sidebar:
+  order: 1
+slug: guides/getting-started
+---
+
+import { Card, CardGrid, LinkCard, Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+This guide covers everything that's shared across providers: installing the package, wiring it into your Django project, and turning on JWT auth. Each OAuth provider then gets its own short guide for credentials, settings, and endpoints - so once you've finished this page, jump to the provider you actually want.
+
+## Requirements
+
+| Requirement           | Version |
+| --------------------- | ------- |
+| Python                | 3.12+   |
+| Django                | 5.0+    |
+| Django REST Framework | 3.15+   |
+
+Installing the package pulls in `djangorestframework-simplejwt`, `google-auth`, and `requests` automatically. You don't need to add them yourself.
+
+## Install
+
+
+<Tabs>
+  <TabItem label="pip">
+    ```bash
+    pip install django-social-auth-rest
+    ```
+  </TabItem>
+  <TabItem label="uv">
+    ```bash
+    uv add django-social-auth-rest
+    ```
+  </TabItem>
+</Tabs>
+
+
+## Setup Social Auth
+
+Let's wire up django-social-auth-rest in your Django project. The steps below are the same for every provider - you only need to configure the provider-specific credentials and URLs once you've finished this section.
+
+
+### Configure Django
+
+<Steps>
+
+1. **Register the app.**
+
+   ```python
+   # settings.py
+   INSTALLED_APPS = [
+       # ...
+       "rest_framework",
+       "django_social_auth_rest",
+   ]
+   ```
+
+2. **Switch DRF to JWT authentication.**
+
+   ```python
+   # settings.py
+   REST_FRAMEWORK = {
+       "DEFAULT_AUTHENTICATION_CLASSES": (
+           "rest_framework_simplejwt.authentication.JWTAuthentication",
+       ),
+   }
+   ```
+
+   If your project already authenticates with `djangorestframework-simplejwt`, you can skip this - every login, link, and signup call from this package returns standard SimpleJWT tokens.
+
+3. **Tune token lifetimes**
+
+   ```python
+   # settings.py
+   from datetime import timedelta
+
+   SIMPLE_JWT = {
+       "AUTH_HEADER_TYPES": ("Bearer",),
+       "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+       "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+       "ROTATE_REFRESH_TOKENS": True,
+       "BLACKLIST_AFTER_ROTATION": True,
+   }
+   ```
+
+   These are SimpleJWT defaults, not package-specific settings - shown here because most projects end up setting them anyway.
+
+4. **Set a real state-signing salt.**
+
+   ```python
+   # settings.py
+   SOCIAL_AUTH_STATE_SALT = "a-long-random-secret-value"
+   ```
+
+   <Aside type="caution" title="Required outside DEBUG">
+     Secret value used to sign OAuth state tokens.
+
+    Some OAuth providers require a state parameter during the authentication flow. django-social-auth-rest signs these tokens to protect against tampering and CSRF attacks.
+
+    In production (DEBUG = False), this setting is required. If it is not configured, Django will raise an `ImproperlyConfigured` exception during startup.
+
+    Generate a secure value using `secrets.token_hex(32)` and load it from an environment variable. Do not commit this value to version control.
+
+    Changing this value does not affect existing users, linked social accounts, or authenticated sessions. However, any OAuth authentication flow that is currently in progress when the value changes will fail state verification and must be restarted.
+   </Aside>
+
+5. **Run migrations.**
+
+   ```bash
+   python manage.py migrate
+   ```
+
+</Steps>
+
+### Turn on the providers you want
+
+A provider only becomes active once its credentials are present in settings - there's nothing to comment out, and no dead endpoints to guard against if you skip one.
+
+```python
+# settings.py
+
+# GitHub (requires both values)
+GITHUB_CLIENT_ID = "your-github-client-id"
+GITHUB_CLIENT_SECRET = "your-github-client-secret"
+
+# Google (requires only the client ID)
+GOOGLE_CLIENT_ID = "your-google-client-id"
+
+# ...add more providers as you enable them
+```
+
+<Aside type="note">
+  More providers are planned. Each one will get its own page here when it lands - this setup page won't need to change.
+</Aside>
+
+### Wire up the URLs
+
+Include the base module plus one module per provider you're using:
+
+```python
+# urls.py
+from django.urls import path, include
+
+urlpatterns = [
+    path("api/social-auth/", include("django_social_auth_rest.urls")),
+    path("api/social-auth/", include("django_social_auth_rest.urls.github")),
+    path("api/social-auth/", include("django_social_auth_rest.urls.google")),
+    # ... add more provider modules as you enable them
+]
+```
+
+The base module (`django_social_auth_rest.urls`) is always required - it exposes [`linked-accounts/`](#whats-next), which works regardless of which providers you've enabled. The provider-specific modules are only needed for providers you've actually configured.
+
+### Avoiding duplicate accounts on signup
+
+Nothing stops a normal username/password signup from reusing an email that's already tied to a linked social account - that's a gap in _your_ signup flow, not this package's, since it doesn't control how you create users. If your app has its own signup endpoint, check against `SocialAccountLinked` before creating the user:
+
+```python
+class SignupSerializer(serializers.Serializer):
+    # ...
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        email = attrs.get("email", "").strip().lower()
+
+        if SocialAccountLinked.objects.filter(email_linked=email).exists():
+            raise serializers.ValidationError(
+                {"email": ["An account already exists for this email."]}
+            )
+
+        return attrs
+```
+
+
+### Optional Configuration 
+
+These all have sensible defaults - most projects never touch them.
+
+| Setting                          | Default                    | What it does                                                       |
+| -------------------------------- | -------------------------- | ------------------------------------------------------------------ |
+| `SOCIAL_AUTH_THROTTLE_RATE`      | `"10/minute"`              | Request rate limit applied to every auth endpoint                  |
+| `SOCIAL_AUTH_STATE_MAX_AGE`      | `300`                      | Seconds before a state token expires                               |
+| `SOCIAL_AUTH_USER_DELETED_FIELD` | `None`                     | Boolean field on your user model marking soft-deleted accounts     |
+
+<Tabs>
+  <TabItem label="SOCIAL_AUTH_THROTTLE_RATE">
+
+    ```python
+    # settings.py
+    SOCIAL_AUTH_THROTTLE_RATE = "20/minute"
+    ```
+
+    Rate limit applied to all authentication endpoints exposed by django-social-auth-rest.
+
+    The value uses Django REST Framework throttle rate syntax:
+
+    - `"10/minute"`
+    - `"100/hour"`
+    - `"1000/day"`
+
+    Most projects can keep the default value.
+
+    **Default:** `"10/minute"`
+
+  </TabItem>
+
+  <TabItem label="SOCIAL_AUTH_STATE_MAX_AGE">
+
+    ```python
+    # settings.py
+    SOCIAL_AUTH_STATE_MAX_AGE = 600
+    ```
+
+    Maximum lifetime of OAuth state tokens, in seconds.
+
+    State tokens are used during OAuth authentication flows to protect against CSRF attacks. Once a token exceeds this age, it can no longer be used and the authentication flow must be restarted.
+
+    **Default:** `300` seconds (5 minutes)
+
+  </TabItem>
+
+  <TabItem label="SOCIAL_AUTH_USER_DELETED_FIELD">
+
+    ```python
+    # settings.py
+    SOCIAL_AUTH_USER_DELETED_FIELD = "is_deleted"
+    ```
+
+    Optional field name used to identify soft-deleted users.
+
+    When configured, django-social-auth-rest checks this field before authenticating a user. If the field evaluates to `True`, authentication is denied.
+
+    This is useful when your application keeps deleted users in the database instead of permanently removing them.
+
+    Example user model:
+
+    ```python
+    # models.py
+    from django.contrib.auth.models import AbstractUser
+    from django.db import models
+
+
+    class User(AbstractUser):
+        email = models.EmailField(unique=True)
+        is_deleted = models.BooleanField(default=False)
+
+        def save(self, *args, **kwargs):
+            self.full_clean()
+            self.email = self.email.lower()
+            super().save(*args, **kwargs)
+    ```
+
+    With this configuration:
+
+    - Users with `is_deleted=False` can authenticate normally.
+    - Users with `is_deleted=True` cannot authenticate through any social provider.
+    - The user record remains in the database and can be restored later.
+
+    **Default:** `None`
+
+  </TabItem>
+</Tabs>
+
+## Beyond authentication
+
+django-social-auth-rest provides more than just login and account linking endpoints.
+
+The package also emits Django signals that let you react to authentication events throughout your application. Common use cases include:
+
+- Creating user profiles automatically
+- Sending welcome emails
+- Tracking signups and logins for analytics
+- Awarding onboarding rewards
+- Syncing user data with external services
+
+Available signals:
+
+| Signal                      | Triggered when                                              |
+| --------------------------- | ----------------------------------------------------------- |
+| `new_user_registered`       | A new user account is created through social authentication |
+| `login_successful`          | A user successfully signs in with a social provider         |
+| `link_account_successful`   | A social account is linked to an existing user              |
+| `unlink_account_successful` | A linked social account is removed from a user              |
+
+See the Signals Reference for usage examples and available signal payloads.
+
+
+## What's next
+
+<CardGrid>
+	<LinkCard
+		title="GitHub provider guide"
+		description="Credentials, the state-token flow, and all four endpoints."
+		href="/guides/providers/github/"
+	/>
+	<LinkCard
+		title="Google provider guide"
+		description="Credentials and the ID-token login, link, and unlink endpoints."
+		href="/guides/providers/google/"
+	/>
+	<LinkCard
+		title="Signals reference"
+		description="Hook into user registration, login, account linking, and unlinking events."
+		href="/reference/signals/"
+	/>
+</CardGrid>
